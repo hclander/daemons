@@ -180,7 +180,7 @@ int runUDPserver() {
 	return EXIT_SUCCESS;
 }
 
-int doTestAndDie() {
+void doTestAndDie() {
 
 	char buf[] = {0x00,0x00,0x17,0x01,0x02,0x03,0x04,0x11,0x00,0x00,0x00,0x01,0x2a,0x33,0x90,0x08,0x98,0x58,0x91,0x3c,0x8C,0x51,0xFA,0x32,0x41};
 
@@ -193,7 +193,7 @@ int doTestAndDie() {
 
 	char strTime[50];
 
-	char chkSum=0;
+	unsigned char chkSum=0;
 
 	trans = (transport_buf_p) buf;
 
@@ -201,7 +201,7 @@ int doTestAndDie() {
 
 	printf("Transport Size 0x%08X 0x%08X %d\n",trans->header.length,ntohs(trans->header.length),ntohs(trans->header.length));
 
-	for (int i=0; i<trans->header.length + sizeof(trans->header.sn);i++) {
+	for (int i=0; i<ntohs(trans->header.length) + sizeof(trans->header.sn);i++) {
 		   chkSum ^= buf[TRANS_CHKBUFF_OFFSET+i];
 		}
 
@@ -210,10 +210,10 @@ int doTestAndDie() {
 			"\t\tLit. Endian: %d\n"
 			"\t\tCRC : %d\n"
 			"\t\tVersion: %d\n"
+			"\t\tSerial: 0x%08X\n"
+			"\t\tLength: %d\n"
 			"\t\tChkSum:  0x%02X\n"
 			"\t\tVerSum:  0x%02X\n"
-
-
 			, trans->header.start.flags.lendian
 			, trans->header.start.flags.crc
 			, trans->header.start.flags.version
