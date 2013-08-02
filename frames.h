@@ -2,16 +2,25 @@
 
 #include <sys/types.h>
 
+#define PACKED __attribute__((__packed__))
 
-#define MAX_TRANS_BUFF_SIZE 2000   //TODO: Revisar esto
+#define MAX_TRANS_BUFF_SIZE 1500   //TODO: Revisar esto
 
-#define TRANS_HEADER_SIZE  7
+#define TRANS_HEADER_START_SIZE 1
+#define TRANS_HEADER_LENGTH_SIZE 2
+#define TRANS_HEADER_SIZE (TRANS_HEADER_START_SIZE + TRANS_HEADER_LENGTH_SIZE)
+
+#define TRANS_HEADER_SERIAL_SIZE 4
+#define TRANS_PREAMBLE_SIZE   (TRANS_HEADER_SIZE + TRANS_HEADER_SERIAL_SIZE)
+
+#define TRANS_DATA_OFFSET  TRANS_PREAMBLE_SIZE
 
 #define TRANS_FOOTER_XOR_SIZE 1
 #define TRANS_FOOTER_CRC_SIZE 2
 
+#define TRNAS_FOOTER_SIZE TRANS_FOOTER_XOR_SIZE
 
-#define PACKED __attribute__((__packed__))
+#define TRANS_OVERLOAD TRANS_PREAMBLE_SIZE + TRNAS_FOOTER_SIZE
 
 typedef union {
 
@@ -32,13 +41,12 @@ typedef struct {
 	u_int32_t sn;
 } PACKED start_header_t ;
 
-#define TRANS_CHKBUFF_OFFSET 3   //TODO: Revisar esto
 
 typedef start_header_t *start_header_p;
 
 typedef struct {
 	start_header_t header;
-	char data[MAX_TRANS_BUFF_SIZE];
+	unsigned char data[MAX_TRANS_BUFF_SIZE];
 } PACKED transport_buf_t;
 
 typedef transport_buf_t *transport_buf_p;
@@ -118,13 +126,23 @@ typedef struct {
 			u_int32_t day:5;
 			u_int32_t month:4;
 			u_int32_t year:6;
-		} ;
+		} parts;
 		u_int32_t epoch;
 	} time;
 
 } PACKED frm_cmd_gps_t;
 
 typedef frm_cmd_gps_t *frm_cmd_gps_p;
+
+
+//typedef struct {
+//
+//
+//} frm_cmd_decoded_gps_t;
+//
+//typedef frm_cmd_decoded_gps_t *frm_cmd_decoded_gps_p;
+
+
 
 #define KNOTS_TO_KMPH  1.852
 #define MIN_TO_DEC 	  60000.0
@@ -137,3 +155,5 @@ typedef frm_cmd_gps_t *frm_cmd_gps_p;
 
 
 
+int frame_xor_checksum(unsigned char *buffer, size_t offset, size_t len);
+int frame_test_transport(unsigned char *buffer, size_t len );

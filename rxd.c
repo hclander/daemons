@@ -118,6 +118,9 @@ void signalHandler(int signal) {
 	}
 }
 
+//Very quick & dirty UDP Server
+//TODO: Improving performance using  select()/poll()  and maybe multiprocess or multithreading.
+
 int runUDPserver() {
 
 	int sckt;
@@ -161,6 +164,8 @@ int runUDPserver() {
 
 	fromLen = sizeof(from);
 
+	//TODO: select()/poll()
+
 	while(!terminate) {  // loop until terminate
 
 	   n = recvfrom(sckt,buf,MAX_TRANS_BUFF_SIZE,0,(struct sockaddr *)&from,&fromLen);
@@ -182,7 +187,7 @@ int runUDPserver() {
 
 void doTestAndDie() {
 
-	char buf[] = {0x00,0x00,0x17,0x01,0x02,0x03,0x04,0x11,0x00,0x00,0x00,0x01,0x2a,0x33,0x90,0x08,0x98,0x58,0x91,0x3c,0x8C,0x51,0xFA,0x32,0x41};
+	unsigned char buf[] = {0x00,0x00,0x17,0x01,0x02,0x03,0x04,0x11,0x00,0x00,0x00,0x01,0x2a,0x33,0x90,0x08,0x98,0x58,0x91,0x3c,0x8C,0x51,0xFA,0x32,0x41,0xAC}; //BB
 
 	frm_cmd_gps_t gps;
 	frm_cmd_gps_p pgps;
@@ -201,9 +206,32 @@ void doTestAndDie() {
 
 	printf("Transport Size 0x%08X 0x%08X %d\n",trans->header.length,ntohs(trans->header.length),ntohs(trans->header.length));
 
-	for (int i=0; i<ntohs(trans->header.length) + sizeof(trans->header.sn);i++) {
-		   chkSum ^= buf[TRANS_CHKBUFF_OFFSET+i];
+
+
+	int dataLen = ntohs(trans->header.length);
+
+	/*
+		for (int i=0; i< dataLen-1 ;i++) {
+		   chkSum ^= buf[TRANS_HEADER_SIZE+i];
 		}
+    */
+
+	if ( frame_test_transport(buf,sizeof(buf)) ) {
+
+		printf("Transport check ok\n");
+
+		frm_cmd_gps_t gps;
+		int gpsLen = sizeof(gps);
+
+		if (frame_decode_gps(buf+TRANS_DATA_OFFSET,dataLen-TRANS_HEADER_SERIAL_SIZE,&gps,&gpsLen)) {
+
+
+
+		}
+
+	}
+
+
 
 	printf("Datos transporte:\n"
 			"\tStart\n"
@@ -213,16 +241,25 @@ void doTestAndDie() {
 			"\t\tSerial: 0x%08X\n"
 			"\t\tLength: %d\n"
 			"\t\tChkSum:  0x%02X\n"
+			"\t\tChkSum2: 0x%02X\n"
 			"\t\tVerSum:  0x%02X\n"
 			, trans->header.start.flags.lendian
 			, trans->header.start.flags.crc
 			, trans->header.start.flags.version
 			, ntohl(trans->header.sn)
 			, ntohs(trans->header.length)
-			, trans->data[ntohs(trans->header.length)]
+			, trans->data[ntohs(trans->header.length)-TRANS_HEADER_SERIAL_SIZE-1]
+			, buf[TRANS_HEADER_SIZE+dataLen-1]
 			, chkSum
 			);
 
+
+	printf("\nData: ");
+	for (int i=0; i< dataLen; i++) {
+
+		printf(" %02X",trans->data[i]);
+	}
+    printf("\n");
 
 
 	printf("Transport SN 0x%08X 0x%08X \n",trans->header.sn,ntohl(trans->header.sn));

@@ -22,3 +22,15 @@ int rndAB(int low, int max) {
 
 	return rand()%(max-low+1)+low;
 }
+
+void freeIf(void *ptr){
+	if(ptr)
+		free(ptr);
+}
+
+void freeAndNull(void **ptr) {
+	if (*ptr) {
+		free(*ptr);
+		*ptr=NULL;
+	}
+}
