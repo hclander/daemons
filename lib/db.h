@@ -1,3 +1,4 @@
+#include <mysql/mysql.h>
 
 typedef struct {
 
@@ -28,13 +29,11 @@ typedef struct {
 typedef ROW_T * ROW_P;
 
 typedef struct {
-	MYSQL_RES *res = NULL;
+	MYSQL_RES *res;
 
 	ROW_T *currentRow;
 
 	long rowCount;
-
-
 	//
 
 } RES_T;

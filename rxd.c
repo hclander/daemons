@@ -216,22 +216,28 @@ void doTestAndDie() {
 		}
     */
 
+	DB_T *db = db_create("localhost","test","juanky","demo");
+	db_connect(db);
+
 	if ( frame_test_transport(buf,sizeof(buf)) ) {
 
 		printf("Transport check ok\n");
+		mydb_insert_transport_frame(db,0,0,buf,sizeof(buf));
+
 
 		frm_cmd_gps_t gps;
 		int gpsLen = sizeof(gps);
 
 		if (frame_decode_gps(buf+TRANS_DATA_OFFSET,dataLen-TRANS_HEADER_SERIAL_SIZE,&gps,&gpsLen)) {
 
-
+			mydb_insert_gps_subframe(db,1,1,&gps,gpsLen);
 
 		}
 
 	}
 
-
+	db_disconnect(db);
+	db_destroy(db);
 
 	printf("Datos transporte:\n"
 			"\tStart\n"

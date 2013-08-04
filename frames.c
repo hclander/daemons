@@ -71,6 +71,7 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 
 			memcpy(dst,buffer,sizeof(frm_cmd_gps_t));
 
+			result = true;
 			//FIXME Decode here fields here??
 //			gps = (frm_cmd_gps_p) dst;
 //			gps->

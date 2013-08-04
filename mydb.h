@@ -31,3 +31,6 @@ typedef struct tblGps {
 }TBL_GPS;
 
 
+int mydb_insert_transport_frame(DB_T *db, long ip, int port, void *buf, size_t len);
+int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t len);
+RES_T * mydb_select_undecoded_transport_frames(DB_T *db);

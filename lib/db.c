@@ -37,6 +37,9 @@ RES_T *db_query(DB_T *db, char *sql) {
 	if (db_isConnected(db)) {
 		if (!mysql_query(db,sql)) {
 
+
+			db->affectedRows = mysql_affected_rows(db->con);
+
 			res = res_create(db);
 
 			return res;
@@ -51,6 +54,9 @@ int db_isConnected(DB_T *db) {
 	return (db->con)?true:false;
 }
 
+int db_getAffectedRows(DB_T *db) {
+	return db->affectedRows;
+}
 char *db_getError(DB_T *db) {
 
 	if (db_isConnected(db))
