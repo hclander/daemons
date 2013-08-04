@@ -1,75 +1,233 @@
+#include <string.h>
+#include <stdbool.h>
 #include "db.h"
-#include "log.h"
 
-// Ejemplo de conexion con mysql
 
-MYSQL *my_mysql_connect(const char *server, const char *user, const char *password, const char *database) {
+/*
+ * Methods for DB_T
+ */
 
-	MYSQL *conn = mysql_init(NULL);
+DB_T *db_create(char *host, char *database, char *user, char *password) {
+	DB_T *db = calloc(1,sizeof(DB_T));
 
-	if (!mysql_real_connect(conn,server,user,password,database,0, NULL,0)) {
+	db->host = strdup(host);
+	db->database = strdup(database);
+	db->user = strdup(user);
+	db->password = strdup(password);
+	mysql_init(&db->mysql);
 
-		LOG_E(mysql_error(conn));
-		return NULL;
-
-	}
-
-	return conn;
+	return db;
 }
 
-MYSQL_RES *my_mysql_query(MYSQL *conn, const char *query) {
-	MYSQL_RES *res = NULL;
+int db_connect(DB_T *db) {
 
-	if (conn!=NULL) {
+	if (!db_isConnected(db)) {
 
-		if (mysql_query(conn, query)) {
-			LOG_E(mysql_error(conn));
-			return NULL;
+		db->con=mysql_real_connect(&db->mysql, db->host,db->user, db->password, db->database,0,NULL,0);
+	}
+
+	return db_isConnected(db);
+
+}
+
+RES_T *db_query(DB_T *db, char *sql) {
+
+	RES_T *res;
+
+	if (db_isConnected(db)) {
+		if (!mysql_query(db,sql)) {
+
+			res = res_create(db);
+
+			return res;
 		}
-
-		res = mysql_use_result(conn);
-
 	}
 
-	return res;
+	return NULL;
+}
+
+int db_isConnected(DB_T *db) {
+
+	return (db->con)?true:false;
+}
+
+char *db_getError(DB_T *db) {
+
+	if (db_isConnected(db))
+		return mysql_error(db->con);
+	else
+		return mysql_errno(&db->mysql);
 }
 
 
-// Funciones de conexion Postgres
-PGconn *pgsql_connect(const char *server, const char *user, const char *password, const char *database) {
-	char strConn [255];
-	PGconn *conn = NULL;
+void db_disconnect(DB_T *db){
+	if (db_isConnected(db)) {
+		mysql_close(db->con);
+		db->con = NULL;
+	}
+}
 
-	snprintf(strConn, sizeof(strConn), "dbname=%s host=%s user=%s password=%s", database, server, user, password);
 
-	conn = PQconnectdb(strConn);
+void db_destroy(DB_T *db) {
 
-	if (PQstatus(conn) == CONNECTION_BAD) {
+	if (db) {
 
-		LOG_F_E("Error al conectar a la base de datos: %s\n",database);
-		PQfinish(conn);
-		return NULL;
+		free(db->host);
+		free(db->database);
+		free(db->user);
+		free(db->password);
+
+		db_disconnect(db);
+
+		free(db);
+	}
+}
+
+/*
+ * Methods for ROW
+ */
+
+ROW_T *row_create(RES_T *res) {
+	ROW_T * row = calloc(1,sizeof(ROW_T));
+
+	row->numFields = mysql_num_fields(res->res);
+
+	row->fields = mysql_fetch_fields(res->res);
+
+	row->row = NULL;
+
+	return row;
+}
+
+void row_next(RES_T *res, ROW_T *row) {
+	row->row = mysql_fetch_row(res->res);
+}
+
+int row_getNumFields(ROW_T *row) {
+	if (!row_isClosed(row))
+		return row->numFields;
+	return -1;
+}
+
+ char *row_getFieldName(ROW_T *row,int i) {
+
+	 if (!row_isClosed(row))
+		 if (i>=0 && i< (row->numFields))
+			 return row->fields[i].name;
+
+	 return NULL;
+ }
+
+ int *row_getFieldIndex(ROW_T *row,char *fieldName) {
+
+	 if (!row_isClosed(row)) {
+
+		 for (int i=0; i<row->numFields; i++) {
+			 if (!strcmp(row->fields[i].name,fieldName))
+				 return i;
+		 }
+	 }
+
+	 return -1;
+ }
+
+char *row_getFieldValue(ROW_T *row, int i) {
+	if (!row_isClosed(row))
+		if ((i>=0) && i<(row->numFields))
+			return row->row[i];
+	return NULL;
+}
+
+int row_isClosed(ROW_T *row) {
+	return row->row?false:true;
+}
+
+void row_close(ROW_T *row) {
+	if (!row_isClosed(row))
+		row->row = NULL;
+}
+
+void row_destroy(ROW_T *row) {
+	if (row) {
+		row_close(row);
+		free(row);
+	}
+}
+
+/*
+ * Methods for RES
+ */
+
+RES_T *res_create(DB_T *db) {
+
+	RES_T *res;
+
+	if (db_isConnected(db)) {
+		res = calloc(1,sizeof(RES_T));
+
+		res->res = mysql_use_result(db->con);
+		res->rowCount =-1;
+
+		res->currentRow = NULL;
+
+		return res;
 	}
 
-	return conn;
+	return NULL;
+}
+
+int res_isClosed(RES_T *res) {
+	return res->res?false:true;
+}
+
+void res_close(RES_T *res){
+	if (!res_isClosed(res)) {
+		mysql_free_result(res->res);
+		res->res = NULL;
+		//res->currentRow
+	}
 }
 
 
-PGresult *pgsql_query(PGconn *conn, const char *query) {
-	PGresult *res = NULL;
+int res_getRowCount(RES_T *res) {
+	if (!res_isClosed(res)) {
+		if (res->rowCount<0)
+			res->rowCount = mysql_num_rows(res->res);
 
-    if (conn!=NULL) {
+		return res->rowCount;
+	}
 
-    	res = PQexec(conn,query);
-    	int status = PQresultStatus(res);
-
-    	if ((PQresultStatus(res) != PGRES_COMMAND_OK)
-    			&& (PQresultStatus(res)!=PGRES_TUPLES_OK)) {
-    		LOG_E(PQerrorMessage(conn));
-    		PQclear(res);
-    		return  NULL;
-    	}
-    }
-
-	return res;
+     return -1;
 }
+
+ROW_T *res_next(RES_T *res) {
+
+	if (!res_isClosed(res)) {
+
+		if (!res->currentRow)
+			res->currentRow = row_create(res);
+
+		row_next(res,res->currentRow);
+
+		return res->currentRow;
+	}
+
+	return NULL;
+}
+
+
+ROW_T *res_getCurrentRow(RES_T *res) {
+
+	if (!res_isClosed(res))
+		return res->currentRow;
+
+	return NULL;
+}
+
+void res_destroy(RES_T *res) {
+   if (res) {
+	res_close(res);
+	free(res);
+   }
+}
+

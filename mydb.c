@@ -1,61 +1,28 @@
 #include <string.h>
 #include <stdbool.h>
+
 #include "mydb.h"
+#include "frames.h"
 
 
-typedef struct {
+int mydb_insert_transport_frame(DB_T *db, char *buf, size_t len) {
 
-	char *host;
-	char *database;
-	char *user;
-	char *password;
-
-	MYSQL *con;
-
-
-
-} DB_T;
-
-typedef DB_T *DB_P;
-
-
-DB_T *db_create(char *host, char *database, char *user, char *password) {
-	DB_T *db = calloc(1,sizeof(DB_T));
-
-	db->host = strdup(host);
-	db->database = strdup(database);
-	db->user = strdup(user);
-	db->password = strdup(password);
-
-	return db;
+	return 0;
 }
 
-int db_connect(DB_T *db) {
+int mydb_insert_gps_subframe(DB_T *db, char *buf, size_t len) {
 
-	db->con=mysql_init(NULL);
-
+	return 0;
 }
 
-int db_isConnected(DB_T *db) {
+RES_T * mydb_select_undecoded_transport_frames(DB_T *) {
 
-	if (db->con)
-		return true;
+	// select * from rx_tbl where status = 0;
 
-	return false;
+	return NULL;
 }
 
-void db_destroy(DB_T *db) {
 
-	if (db) {
 
-		free(db->host);
-		free(db->database);
-		free(db->user);
-		free(db->password);
 
-		if (db_isConnected(db)) {
-			mysql_close(db->con);
-		}
 
-	}
-}
