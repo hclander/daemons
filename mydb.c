@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <netinet/in.h>
@@ -9,7 +11,7 @@
 
 int mydb_insert_transport_frame(DB_T *db, long ip, int port, void *buf, size_t len) {
 
-	const char *tpl= " INSERT INTO rx_tbl ( ip, port, ns, len, data ) "
+	 char *tpl= " INSERT INTO rx_tbl ( ip, port, ns, len, data ) "
 					 " VALUES ( %d, %d, %d, %d, '%s' ) ";
 
 
@@ -37,9 +39,28 @@ int mydb_insert_transport_frame(DB_T *db, long ip, int port, void *buf, size_t l
 	return 0;
 }
 
+
+int mydb_update_transport_frame_status(DB_T *db, int rx_id, int status) {
+	char *tpl = " UPDATE rx_tbl SET status = %d WHERE id = %d ";
+
+	if (db_isConnected(db)) {
+		char sql[1500];
+
+		sprintf(sql,tpl,status,rx_id);
+
+		RES_T *res=db_query(db,sql);
+
+		res_destroy(res);
+		return db_getAffectedRows(db);
+
+	}
+
+	return 0;
+}
+
 int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t len) {
 
-	const char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, sec, lat, lon, bearing, speed, knots, fix, hdop,time) "
+	 char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, sec, lat, lon, bearing, speed, knots, fix, hdop,time) "
 			          " VALUES (%d, %d, %d,%d, %f, %f, %d, %f, %d, %d, %d , %d)";
 
 	struct tm tp;
@@ -106,7 +127,7 @@ int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t
 
 RES_T * mydb_select_undecoded_transport_frames(DB_T *db) {
 
-	const char *sql="SELECT * FROM rx_tbl where status=0 order by ts";
+	 char *sql="SELECT * FROM rx_tbl where status=0 order by ts";
 
 	if (db_isConnected(db)) {
 		RES_T *res = db_query(db,sql);

@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <netinet/in.h>
 
@@ -60,6 +62,7 @@ int frame_test_gps(unsigned char *buffer, size_t len) {
 	return result;
 }
 
+
 int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen){
 
 	int result = false;
@@ -81,6 +84,41 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 	*gpsLen = sizeof(frm_cmd_gps_t);
 
 	return result;
+}
+
+
+
+int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen ) {
+
+	int result = false;
+	int chkSum;
+	//unsigned char * pchkSum;
+
+	if ( *dstLen >= srcLen+TRANS_OVERLOAD) {
+
+		transport_buf_p trans = (transport_buf_p) dst;
+
+		trans->header.start.start = 0x00;
+
+		trans->header.sn = htonl(ns);
+
+		trans->header.length = htons(TRANS_OVERLOAD - TRANS_HEADER_SIZE + srcLen);
+
+		memcpy(dst+TRANS_PREAMBLE_SIZE,src,srcLen);
+
+		chkSum=frame_xor_checksum(dst,TRANS_HEADER_SIZE,TRANS_OVERLOAD - TRANS_HEADER_SIZE + srcLen-1);
+
+		//pchkSum = dst +
+		((char *)dst)[srcLen+TRANS_OVERLOAD-TRANS_FOOTER_SIZE] =chkSum;
+
+
+		result = true;
+
+	}
+
+	*dstLen=srcLen+TRANS_OVERLOAD;
+
+   return result;;
 }
 
 int frame_decode_transport(unsigned char *buffer, size_t len){

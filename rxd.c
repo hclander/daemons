@@ -24,7 +24,6 @@
 int udpPort =UDP_DEFAULT_PORT;
 int verboseLevel= 1;
 bool keepAsDaemon=true;
-
 bool terminate = false;
 
 const char *TAG="RXd";
@@ -129,6 +128,7 @@ int runUDPserver() {
 	struct sockaddr_in server, from;
 
 	char buf[MAX_TRANS_BUFF_SIZE];
+	DB_T *db;
 
 	LOG_D("Iniciando servidor UDP");
 
@@ -164,6 +164,11 @@ int runUDPserver() {
 
 	fromLen = sizeof(from);
 
+	db = db_create("localhost","Yii","jcmendez","locatel");
+
+	if (!db_connect(db)) {
+		die("Error connecting database");
+	}
 	//TODO: select()/poll()
 
 	while(!terminate) {  // loop until terminate
@@ -176,11 +181,18 @@ int runUDPserver() {
 
 	   LOG_F_N("Incoming [%s:%u (%d)]",inet_ntoa(from.sin_addr),ntohs(from.sin_port),n);
 
+	   if (frame_test_transport(buf,n)) {
+
+		   mydb_insert_transport_frame(db,ntohl(from.sin_addr.s_addr),ntohs(from.sin_port),buf,n);
+
+	   }
+
 	   //TODO: Guardar los datos a la BBDD
 
 	}
 
 	close(sckt);
+	db_destroy(db);
 
 	return EXIT_SUCCESS;
 }
@@ -216,8 +228,10 @@ void doTestAndDie() {
 		}
     */
 
-	DB_T *db = db_create("localhost","test","juanky","demo");
-	db_connect(db);
+	DB_T *db = db_create("localhost","Yii","jcmendez","locatel");
+	if (!db_connect(db)) {
+		die("Error connecting database");
+	}
 
 	if ( frame_test_transport(buf,sizeof(buf)) ) {
 
@@ -226,7 +240,7 @@ void doTestAndDie() {
 
 
 		frm_cmd_gps_t gps;
-		int gpsLen = sizeof(gps);
+		size_t gpsLen = sizeof(gps);
 
 		if (frame_decode_gps(buf+TRANS_DATA_OFFSET,dataLen-TRANS_HEADER_SERIAL_SIZE,&gps,&gpsLen)) {
 
@@ -236,7 +250,7 @@ void doTestAndDie() {
 
 	}
 
-	db_disconnect(db);
+	//db_disconnect(db);
 	db_destroy(db);
 
 	printf("Datos transporte:\n"
@@ -308,7 +322,9 @@ void doTestAndDie() {
 
 int main(int argc, char **argv) {
 
-	doTestAndDie();
+	int exitCode;
+
+	//doTestAndDie();
 
 	parseArgs(argc,argv);
 	initLogs();
@@ -331,7 +347,9 @@ int main(int argc, char **argv) {
 	signal(SIGHUP,signalHandler); /* catch hangup signal */
 	signal(SIGTERM,signalHandler); /* catch kill signal */
 
-	return runUDPserver();
+	exitCode=runUDPserver();
+
+	return exitCode;
 
 	//return EXIT_SUCCESS;
 }

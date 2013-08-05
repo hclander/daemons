@@ -18,9 +18,9 @@
 #define TRANS_FOOTER_XOR_SIZE 1
 #define TRANS_FOOTER_CRC_SIZE 2
 
-#define TRNAS_FOOTER_SIZE TRANS_FOOTER_XOR_SIZE
+#define TRANS_FOOTER_SIZE TRANS_FOOTER_XOR_SIZE
 
-#define TRANS_OVERLOAD TRANS_PREAMBLE_SIZE + TRNAS_FOOTER_SIZE
+#define TRANS_OVERLOAD TRANS_PREAMBLE_SIZE + TRANS_FOOTER_SIZE
 
 typedef union {
 
@@ -151,6 +151,7 @@ typedef frm_cmd_gps_t *frm_cmd_gps_p;
 #define GPS_DECODE_LOC_1M(sign,deg,min) ( (deg+min/MIN_TO_DEC) * (1+sign*-2) * 1000000)
 #define GPS_DECODE_BEARING(bearing) (bearing*4)
 
+#define GPS_ENCODE_LOCMIN(loc)  ( (loc - (int) loc) * MIN_TO_DEC * (loc<0?-1:1) )
 #define GPS_ENCODE_SPEED(kpmh) (kmph / KNOTS_TO_KMPH)
 #define GPS_ENCODE_BEARING(bearing) (bearing/4)
 
@@ -158,3 +159,7 @@ typedef frm_cmd_gps_t *frm_cmd_gps_p;
 
 int frame_xor_checksum(unsigned char *buffer, size_t offset, size_t len);
 int frame_test_transport(unsigned char *buffer, size_t len );
+int frame_test_gps(unsigned char *buffer, size_t len);
+int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
+int frame_decode_transport(unsigned char *buffer, size_t len);
+int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen );

@@ -13,7 +13,7 @@
 
 int verboseLevel= 1;
 bool keepAsDaemon=true;
-
+int timeLapse=5;
 bool terminate = false;
 
 const char *TAG="GPSd";
@@ -22,7 +22,7 @@ const char *TAG="GPSd";
 void help() {
 	printf("gpsd v1.0 Daemon de recepcion de tramas\n\n"
 			 "Syntaxis:\n"
-			 "\n\tgpsd [ -h | --help ] [ -v | --verbose  < 0 | 1 | 2 > ]  \n"
+			 "\n\tgpsd [ -h | --help ] [-l | --lapse] [ -v | --verbose  < 0 | 1 | 2 > ]  \n"
 			 "\n\twhere:\n"
 			 "\t -h | --help     : Shows this help.\n"
 			 "\t -v | --verbose  : Sets the verbose level( 0 Error , 1 Notice, 2  Debug )\n"
@@ -35,6 +35,7 @@ void parseArgs(int argc, char **argv) {
 	 bool noArgs    = true;
 	 static struct option longOptions[] = {
 	    		{"help",0,0,'h'},
+	    		{"lapse",1,0,'l'},
 	    		{"verbose",1,0,'v'},
 	    		{0,0,0,0}
 	    };
@@ -42,12 +43,15 @@ void parseArgs(int argc, char **argv) {
 		//Parseo de parametros;
 	    int c;
 
-	    while ( (c = getopt_long(argc,argv,"hv:n",longOptions,NULL)) != -1) {
+	    while ( (c = getopt_long(argc,argv,"hl:v:n",longOptions,NULL)) != -1) {
 
 	    	if (noArgs)
 	    		noArgs = false;
 
 	    	switch(c) {
+	    		case 'l':
+	    			timeLapse = atoi(optarg);
+	    			break;
 				case 'v':
 					verboseLevel = atoi(optarg);
 					break;
@@ -103,83 +107,141 @@ void signalHandler(int signal) {
 }
 
 
-int processGpsData(MYSQL_RES *res) {
-	int num_fields;
-	MYSQL_FIELD *fields;
+int processGpsData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 
-	MYSQL_ROW row;
+	ROW_T *row;
+	int rx_id,loc_id;
+	frm_cmd_gps_t gps;
+	unsigned char *buf;
+	size_t len,gpsLen;
 
-	MYSQL *conWrite;
 
-
-	num_fields = mysql_num_fields(res);
-
-	fields = mysql_fetch_fields(res);
-
-	//TODO: Leer los datos descomprimirlos y guardarlos en la BBDD
-	while ((row = mysql_fetch_row(res)) != NULL ) {
-
-		 for(int i = 0; i < num_fields; i++) {
-
-			LOG_F_D("%s = %s\t", fields[i].name, row[i]?row[i]:"NULL");
-
-		 }
-
+	if (res_isClosed(res)) {
+		LOG_E("Recordset is closed");
+		return EXIT_FAILURE;
 	}
 
 
+	loc_id = 1;
+	gpsLen = sizeof(gps);
+
+	while (!row_isClosed(row=res_next(res))  ) {
+
+		rx_id = atoi(row_getFieldValue(row, row_getFieldIndex(row,"id")));
+		len   = atoi(row_getFieldValue(row, row_getFieldIndex(row,"len")));
+
+		buf = row_getFieldValue(row, row_getFieldIndex(row,"data"));
+
+		if ( frame_decode_gps(buf+TRANS_PREAMBLE_SIZE,len,&gps,&gpsLen) ) {
+
+			if ( mydb_insert_gps_subframe(dbw,rx_id,loc_id,&gps,gpsLen) )
+				mydb_update_transport_frame_status(dbr,rx_id,1);
+
+		} else {
+			LOG_E("No es una trama gps");
+		}
+
+	}
+
+	row_destroy(row);
+
 	return EXIT_SUCCESS;
+
+	//	int num_fields;
+	//	MYSQL_FIELD *fields;
+	//
+	//	MYSQL_ROW row;
+	//
+	//	MYSQL *conWrite;
+	//
+	//
+	//	num_fields = mysql_num_fields(res);
+	//
+	//	fields = mysql_fetch_fields(res);
+	//
+	//	//TODO: Leer los datos descomprimirlos y guardarlos en la BBDD
+	//	while ((row = mysql_fetch_row(res)) != NULL ) {
+	//
+	//		 for(int i = 0; i < num_fields; i++) {
+	//
+	//			LOG_F_D("%s = %s\t", fields[i].name, row[i]?row[i]:"NULL");
+	//
+	//		 }
+	//
+	//	}
 }
 
 int runGpsMonitor() {
 
 	//TODO: Necesitamos doble conexions  una para la lectura y otra para la escritura
+	DB_T *dbr;
+	DB_T *dbw;
 
-   char sql[]="select * from rx_tbl where status=0";
+	RES_T *res;
 
-   MYSQL *conRead;
-   MYSQL_RES *res;
+	LOG_N("Inicializando monitor...");
 
-   conRead = mysql_init(NULL);
-
-   //TODO: Comprobar posibles problemas de rendimiento
-   // que es mejor abrir y cerrar la conexion
-   // o dejarla siempre abierta.
-
-   if ( !mysql_real_connect(conRead,"localhost","jcmendez","locatel","test",0,NULL,0) ) {
-
-	   LOG_E(mysql_error(conRead));
-	   return EXIT_FAILURE;
-   }
-
-   while(terminate) {
-
-	   if ( mysql_query(conRead,sql) ) {
-
-		   LOG_E(mysql_error(conRead));
+	dbr = db_create("localhost","Yii","jcmendez","locatel");
+	dbw = db_create("localhost","Yii","jcmendez","locatel");
 
 
-	   } else {
-
-		   res = mysql_use_result(conRead);
-
-		   if (res != NULL) {
-
-
-			   processGpsData(res);
-
-			   mysql_free_result(res);
-
-		   }
+	db_connect(dbr);
+	if (!db_isConnected(dbr)) {
+		LOG_E(db_getError(dbr));
+		db_destroy(dbr);
+		return EXIT_FAILURE;
+	}
 
 
+	db_connect(dbw);
+
+	if (!db_isConnected(dbw)) {
+		LOG_E(db_getError(dbw));
+		db_destroy(dbw);
+		db_destroy(dbr);
+		return EXIT_FAILURE;
+	}
+
+
+   while(!terminate) {
+
+	   LOG_N("Checking for undecoded frames...");
+	   res = mydb_select_undecoded_transport_frames(dbr);
+
+	   if (res_getRowCount(res)>0) {
+		   LOG_F_N("Processing %d new frames..",res_getRowCount(res));
+		   processGpsData(res,dbw,dbr);
 	   }
 
+	   res_destroy(res);
+//	   if ( mysql_query(conRead,sql) ) {
+//
+//		   LOG_E(mysql_error(conRead));
+//
+//
+//	   } else {
+//
+//		   res = mysql_use_result(conRead);
+//
+//		   if (res != NULL) {
+//
+//
+//			   processGpsData(res);
+//
+//			   mysql_free_result(res);
+//
+//		   }
+//
+//
+//	   }
 
-	   sleep(5);   // Wait 5 seconds;
+	   LOG_F_N("...All done. Sleeping %d",timeLapse);
+	   sleep(timeLapse);   // Wait 5 seconds;
    }
 
-   mysql_close(conRead);
+	db_destroy(dbr);
+	db_destroy(dbw);
+   //mysql_close(conRead);
 
 	return EXIT_SUCCESS;
 }

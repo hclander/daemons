@@ -8,12 +8,15 @@ COMMON_SOURCES= mydb.c mydb.h frames.c frames.h $(LIB_SOURCES)
 
 RXD_SOURCES=rxd.c rxd.h  $(COMMON_SOURCES)
 GPSD_SOURCES=gpsd.c gpsd.h $(COMMON_SOURCES)
+TXS_SOURCES=txs.c $(COMMON_SOURCES)
 
-all: rxd gpsd
+all: rxd gpsd txs
 
 rxd: $(RXD_SOURCES)
 
 gpsd: $(GPSD_SOURCES)
+
+txs: $(TXS_SOURCES)
 
 clean:
 	rm rxd gpsd

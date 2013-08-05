@@ -68,8 +68,9 @@ void row_next(RES_T *res, ROW_T *row);
 int row_getNumFields(ROW_T *row) ;
 
 char *row_getFieldName(ROW_T *row,int i) ;
-int *row_getFieldIndex(ROW_T *row,char *fieldName) ;
+int row_getFieldIndex(ROW_T *row,char *fieldName) ;
 char *row_getFieldValue(ROW_T *row, int i) ;
+int db_getAffectedRows(DB_T *db);
 
 int row_isClosed(ROW_T *row);
 

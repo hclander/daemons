@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include "db.h"
@@ -35,7 +36,7 @@ RES_T *db_query(DB_T *db, char *sql) {
 	RES_T *res;
 
 	if (db_isConnected(db)) {
-		if (!mysql_query(db,sql)) {
+		if (!mysql_query(db->con,sql)) {
 
 
 			db->affectedRows = mysql_affected_rows(db->con);
@@ -60,9 +61,9 @@ int db_getAffectedRows(DB_T *db) {
 char *db_getError(DB_T *db) {
 
 	if (db_isConnected(db))
-		return mysql_error(db->con);
+		return (char *) mysql_error(db->con);
 	else
-		return mysql_errno(&db->mysql);
+		return (char *) mysql_error(&db->mysql);
 }
 
 
@@ -124,7 +125,7 @@ int row_getNumFields(ROW_T *row) {
 	 return NULL;
  }
 
- int *row_getFieldIndex(ROW_T *row,char *fieldName) {
+ int row_getFieldIndex(ROW_T *row,char *fieldName) {
 
 	 if (!row_isClosed(row)) {
 
@@ -171,7 +172,7 @@ RES_T *res_create(DB_T *db) {
 	if (db_isConnected(db)) {
 		res = calloc(1,sizeof(RES_T));
 
-		res->res = mysql_use_result(db->con);
+		res->res = mysql_store_result(db->con);
 		res->rowCount =-1;
 
 		res->currentRow = NULL;
