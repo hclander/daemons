@@ -19,6 +19,8 @@
 #include "frames.h"
 #include "lib/tools.h"
 
+#include "lib/project.h"
+
 #define UDP_DEFAULT_PORT 4490
 
 int udpPort =UDP_DEFAULT_PORT;
@@ -230,6 +232,7 @@ int doTestAndDie() {
 		  lat,lon,lat_sign,lat_deg,lat_min,
 		  lon_sign, lon_deg, lon_min,lat2,lon2);
 
+
 	exit(0);
 
 }
@@ -239,7 +242,7 @@ int main(int argc, char **argv) {
 
 	int exitCode;
 
-	doTestAndDie();
+	//doTestAndDie();
 
 	parseArgs(argc,argv);
 
