@@ -116,10 +116,10 @@ int runSimulator(char *ip, int port) {
 		gps.bearing = GPS_ENCODE_BEARING(bear);
 		gps.knots = knots;
 		gps.lat_sign = lat<0?1:0;
-		gps.lat_deg = lat;
+		gps.lat_deg = gps.lat_sign?-lat:lat;
 		gps.lat_min =htons(GPS_ENCODE_LOCMIN(lat));
 		gps.lon_sign = lon<0?1:0;
-		gps.lon_deg = lon;
+		gps.lon_deg = gps.lon_sign?-lon:lon;
 		gps.lon_min = htons(GPS_ENCODE_LOCMIN(lon));
 
 		gps.fix = 1;
@@ -199,12 +199,47 @@ void parseArgs(int argc, char **argv) {
 }
 
 
+int doTestAndDie() {
+	long x,y;
+	float lat, lon,lat2,lon2;
+	int lat_sign, lat_deg, lat_min;
+	int lon_sign, lon_deg, lon_min;
+
+	lat = 42.22;
+	lon = -8.65;
+
+	y = lat2y(lat);
+	x = lon2x(lon);
+
+	lat_sign=lat<0?1:0;
+	lat_deg = lat_sign?-lat:lat;
+	lat_min = GPS_ENCODE_LOCMIN(lat);
+
+
+	lon_sign=lon<0?1:0;
+	lon_deg = lon_sign?-lon:-lon;
+	lon_min = GPS_ENCODE_LOCMIN(lon);
+
+	lat2 = GPS_DECODE_LOC(lat_sign, lat_deg, lat_min);
+	lon2 = GPS_DECODE_LOC(lon_sign, lon_deg, lon_min);
+
+	printf("Test:\n\t Lat: %f\tLon:%f\n"
+		  "\t Lat: %d %d %d \n"
+		  "\t Lon: %d \%d \%d \n"
+		  "\t Lat2: %f\tLon2: %f\n",
+		  lat,lon,lat_sign,lat_deg,lat_min,
+		  lon_sign, lon_deg, lon_min,lat2,lon2);
+
+	exit(0);
+
+}
+
 
 int main(int argc, char **argv) {
 
 	int exitCode;
 
-
+	doTestAndDie();
 
 	parseArgs(argc,argv);
 

@@ -19,4 +19,4 @@ gpsd: $(GPSD_SOURCES)
 txs: $(TXS_SOURCES)
 
 clean:
-	rm rxd gpsd
+	rm rxd gpsd txs
