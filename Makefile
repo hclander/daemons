@@ -1,6 +1,8 @@
 DEBUG=-g3
 CFLAGS=-std=c99 -D_GNU_SOURCE $(DEBUG)
-LDFLAGS=-lmysqlclient -lpq -lodbc
+#LDFLAGS=
+
+LDLIBS=-lmysqlclient -lpq -lodbc
 
 LIB_SOURCES=lib/db.c lib/db.h lib/file.c lib/file.h lib/log.c lib/log.h lib/tools.c lib/tools.h
 
