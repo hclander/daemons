@@ -134,6 +134,86 @@ typedef struct {
 
 typedef frm_cmd_gps_t *frm_cmd_gps_p;
 
+//trama extendida    : 1 bit
+//long. trama    : 2 bits  (siempre 01)
+//hora        : 5 bits
+//--
+//min.        : 6 bits
+//seg.        : 6 bits
+//rumbo_2        : 1 bit
+//fix        : 1 bit
+//contacto    : 1 bit
+//E/W        : 1 bit
+//--
+//min. lat.    : 16 bits
+//--
+//min. long.    : 16 bits
+//--
+//rumbo_1        : 1 bit
+//velocidad    : 7 bits
+//--
+//rumbo_0        : 1 bit
+//hdop: 7 bits
+//--
+//N/S        : 1 bit
+//grados lat.    : 7 bits
+//--
+//grados long.    : 8 bits
+//--
+//día        : 5 bits
+//año        : 2 bits
+//encendido    : 1 bit (solo aplicable en tramas de posiciones, aunque podría aportar información en tramas de monitor)
+//--
+//mes        : 4 bits
+//sensor_movim.    : 1 bit (a partir de la v150)
+//solicitud_asent.: 1 bit (solo aplicable en la trama de monitor ; a partir de la v40)
+//ultima_trama    : 1 bit (solo aplicable en la trama de monitor ; a partir de la v38)
+//ee_fin        : 1 bit    (solo aplicable en la trama de monitor)
+//--
+//bloque_fin    : 8 bits    (solo aplicable en la trama de monitor)
+//-
+
+typedef struct {
+
+	u_int8_t   hour:5;
+	u_int8_t   lon :2;
+	u_int8_t   ext :1;
+
+	u_int16_t  ew  :1;
+	u_int16_t  ign :1;      // ignition contacto
+	u_int16_t  fix :1;
+	u_int16_t  bear2 :1;      //bearing 2
+	u_int16_t  secs :6;
+	u_int16_t  mins :6;
+
+	u_int16_t  lat_min;
+	u_int16_t  lon_min;
+
+	u_int8_t   bear1 :1;
+	u_int8_t   knots:7;
+
+	u_int8_t   bear0 :1;
+	u_int8_t   hdop  :7;
+
+	u_int8_t   ns:1;
+	u_int8_t   lat_deg:7;
+
+	u_int8_t   lon_deg;
+
+	u_int8_t   turnon: 1;
+	u_int8_t   year: 2;
+	u_int8_t   day : 5;
+
+	u_int8_t   ee_end:1;
+	u_int8_t   last_frm: 1;
+	u_int8_t   ack_req: 1;
+	u_int8_t   mov_sen: 1;
+	u_int8_t   month:4;
+
+	u_int8_t   blk_end;
+
+
+} PACKED frm_cmd_old_gps_t;
 
 //typedef struct {
 //
