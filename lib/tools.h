@@ -1,3 +1,6 @@
+#ifndef TOOLS_H_
+#define TOOLS_H_
+
 #include <stdlib.h>
 #include <time.h>
 
@@ -19,3 +22,6 @@ long lon2x(float lon);
 long lat2y(float lat);
 float x2lon(long x);
 float y2lat(long y);
+
+
+#endif /* TOOLS_H_ */

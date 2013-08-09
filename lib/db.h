@@ -1,3 +1,6 @@
+#ifndef DB_H_
+#define DB_H_
+
 #include <mysql/mysql.h>
 
 typedef struct {
@@ -97,3 +100,4 @@ ROW_T *res_getCurrentRow(RES_T *res) ;
 void res_destroy(RES_T *res);
 
 
+#endif /* DB_H_ */

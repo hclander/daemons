@@ -1,3 +1,6 @@
+#ifndef DB_DIRECT_H_
+#define DB_DIRECT_H_
+
 #include <mysql/mysql.h>
 #include <postgresql/libpq-fe.h>
 // includes for unixODBC
@@ -15,4 +18,4 @@ extern PGresult *pgsql_query(PGconn *conn, const char *query);
 
 
 
-
+#endif /* DB_DIRECT_H_ */

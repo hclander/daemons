@@ -41,24 +41,71 @@ int frame_test_transport(unsigned char *buffer, size_t len ) {
 }
 
 
+int frame_test_gps_old(unsigned char *buffer, size_t len) {
+	int result = false;
+
+	frm_cmd_gps_old_p src;
+	int minLen = sizeof(frm_cmd_gps_old_t);
+
+	if (len>=minLen){
+		src = (frm_cmd_gps_old_p) buffer;
+
+		if (src->cmd ==FRAME_CMD_GPS_OLD) {
+			if( src->len>=minLen) {
+				result = true;
+			}
+		}
+	}
+
+	return result;
+}
 
 int frame_test_gps(unsigned char *buffer, size_t len) {
 	int result = false;
 
 	frm_cmd_gps_p src;
+	int minLen = sizeof(frm_cmd_gps_t);
 
-	if (len>=sizeof(frm_cmd_gps_t)) {
+	if (len>=minLen) {
 
 		src = (frm_cmd_gps_p) buffer;
 
-		if (src->cmd == FRAME_CMD_GPS_HUMAN
-				|| src->cmd == FRAME_CMD_GPS_EPOCH) {
 
-			result = true;
+		if (src->cmd == FRAME_CMD_GPS_HUMAN
+				|| src->cmd == FRAME_CMD_GPS_EPOCH ) {
+
+			if ((src->len==0) || (src->len>=minLen)) {
+
+				result = true;
+			}
 		}
 
 	}
 
+	return result;
+
+}
+
+int frame_test_gps_all(unsigned char *buffer, size_t len) {
+
+	return frame_test_gps(buffer,len) || frame_test_gps_old(buffer,len);
+}
+
+int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen) {
+	int result = false;
+
+	int minLen=sizeof(frm_cmd_gps_old_t);
+
+	if (len>=minLen) {
+		if (frame_test_gps_old(buffer,*gpsLen)) {
+
+			memcpy(dst,buffer,minLen);
+
+			result = true;
+		}
+	}
+
+	*gpsLen = minLen;
 	return result;
 }
 
@@ -69,10 +116,12 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 
 	frm_cmd_gps_p src,gps;
 
-	if (len>= sizeof(frm_cmd_gps_t))
+	int minLen=sizeof(frm_cmd_gps_t);
+
+	if (len>= minLen)
 		if (frame_test_gps(buffer,*gpsLen)) {
 
-			memcpy(dst,buffer,sizeof(frm_cmd_gps_t));
+			memcpy(dst,buffer,minLen);
 
 			result = true;
 			//FIXME Decode here fields here??
@@ -81,11 +130,16 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 
 		}
 
-	*gpsLen = sizeof(frm_cmd_gps_t);
+	*gpsLen = minLen;
 
 	return result;
 }
 
+int frame_decode_gps_all(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen) {
+
+	return frame_decode_gps(buffer,len,dst,gpsLen)
+			|| frame_decode_gps_old(buffer,len,dst,gpsLen);
+}
 
 
 int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen ) {
@@ -127,5 +181,10 @@ int frame_decode_transport(unsigned char *buffer, size_t len){
 }
 
 
+// TODO ACK Varios EF XXXX 00 CS  para 0x11
+
+// TODO Ack nserie E9 00 00 XX XX CS  para 0x06
+
+// En ambos casos XX XX  = numero serie
 
 

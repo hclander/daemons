@@ -9,14 +9,13 @@
 #include "frames.h"
 
 
-int mydb_insert_transport_frame(DB_T *db, long ip, int port, void *buf, size_t len) {
+int mydb_insert_transport_frame(DB_T *db, long ip, int port,long sn, void *buf, size_t len) {
 
 	 char *tpl= " INSERT INTO rx_tbl ( ip, port, ns, len, data ) "
 					 " VALUES ( %d, %d, %d, %d, '%s' ) ";
 
 
 	if (db_isConnected(db)) {
-		transport_buf_p trans = (transport_buf_p) buf;
 
 		char chunk[2*len+1];
 
@@ -25,7 +24,7 @@ int mydb_insert_transport_frame(DB_T *db, long ip, int port, void *buf, size_t l
 		char sql[3000];
 
 
-		sprintf(sql,tpl,ip,port,ntohl(trans->header.sn),len,chunk);
+		sprintf(sql,tpl,ip,port,sn,len,chunk);
 
 		RES_T *res=db_query(db,sql);
 
@@ -60,8 +59,8 @@ int mydb_update_transport_frame_status(DB_T *db, int rx_id, int status) {
 
 int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t len) {
 
-	 char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, sec, lat, lon, bearing, speed, knots, fix, hdop,time) "
-			          " VALUES (%d, %d, %d,%d, %f, %f, %d, %f, %d, %d, %d , %d)";
+	 char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, len, seql, seqs, lat, lon, bearing, speed, knots, fix, hdop,time) "
+			          " VALUES (%d, %d, %d,%d,%d, %d, %f, %f, %d, %f, %d, %d, %d , %d)";
 
 	struct tm tp;
 
@@ -104,7 +103,9 @@ int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t
 				rx_id,
 				loc_id,
 				gps->cmd,
-				ntohl(gps->seq),
+				gps->len,
+				ntohs(gps->seq_l),
+				ntohs(gps->seq_s),
 				GPS_DECODE_LOC_1M(gps->lat_sign,gps->lat_deg,ntohs(gps->lat_min)),
 				GPS_DECODE_LOC_1M(gps->lon_sign,gps->lon_deg,ntohs(gps->lon_min)),
 				GPS_DECODE_BEARING(gps->bearing),

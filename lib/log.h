@@ -1,3 +1,5 @@
+#ifndef LOG_H_
+#define LOG_H_
 
 #include <syslog.h>
 
@@ -28,3 +30,6 @@
 #define LOG_LEVEL(level) setlogmask(LOG_UPTO(level))
 
 #define CLOSELOG()  closelog()
+
+
+#endif /* LOG_H_ */

@@ -132,7 +132,7 @@ int processGpsData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 
 		buf = row_getFieldValue(row, row_getFieldIndex(row,"data"));
 
-		if ( frame_decode_gps(buf+TRANS_PREAMBLE_SIZE,len,&gps,&gpsLen) ) {
+		if ( frame_decode_gps(buf,len,&gps,&gpsLen) ) {
 
 			if ( mydb_insert_gps_subframe(dbw,rx_id,loc_id,&gps,gpsLen) )
 				mydb_update_transport_frame_status(dbr,rx_id,1);

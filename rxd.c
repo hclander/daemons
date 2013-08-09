@@ -183,7 +183,10 @@ int runUDPserver() {
 
 	   if (frame_test_transport(buf,n)) {
 
-		   mydb_insert_transport_frame(db,ntohl(from.sin_addr.s_addr),ntohs(from.sin_port),buf,n);
+		   transport_buf_p trans =(transport_buf_p) buf;
+
+		   // Ahora sólo guaradamos la carga util . El resto se guarda como campos de la tabla
+		   mydb_insert_transport_frame(db,ntohl(from.sin_addr.s_addr),ntohs(from.sin_port),ntohl(trans->header.sn),buf+TRANS_PREAMBLE_SIZE,n-TRANS_OVERLOAD);
 
 	   }
 
@@ -201,6 +204,9 @@ void doTestAndDie() {
 
 	unsigned char buf[] = {0x00,0x00,0x17,0x01,0x02,0x03,0x04,0x11,0x00,0x00,0x00,0x01,0x2a,0x33,0x90,0x08,0x98,0x58,0x91,0x3c,0x8C,0x51,0xFA,0x32,0x41,0xAC}; //BB
 
+	unsigned char ogps[]= {0x00,0x00,0x1A,0x01,0x02,0x03,0x04,0x13,0x11,0x00,0x01,0x00,0x00,0xAA,0x86,0xEF,0x72,0x01,0xA8,0x58,0x9A,0x8B,0x29,0x05,0x4A,0x8D,0x27,0x3E,0xA4};
+	// 09/08/2013 12:33:46	41,48642	-5,718267	11	1	1	48	1	0	1	1	7	Zamora	CL-605	ZAMORA	1	0	1	3	39 = 0x27	1
+
 	frm_cmd_gps_t gps;
 	frm_cmd_gps_p pgps;
 
@@ -211,6 +217,70 @@ void doTestAndDie() {
 	char strTime[50];
 
 	unsigned char chkSum=0;
+
+
+    if (frame_test_transport(ogps,sizeof(ogps))) {
+
+    	struct tm *ptime;
+
+    	trans = (transport_buf_p) ogps;
+    	frm_cmd_gps_old_p opgps = (frm_cmd_gps_old_p) trans->data;
+
+    	epoch= time(NULL);
+    	ptime = gmtime(&epoch);
+
+    	printf("Old Gps size = " ,sizeof(frm_cmd_gps_old_t));
+
+    	opgps->data.asWord = ntohs(opgps->data.asWord);
+
+    	printf("Datos trama Gps:\n"
+    			    "\tCMD: 0x%02x\n"
+    				"\tLEN: %d\n"
+    			    "\tSEQ_L: 0x%04X\n"
+    			    "\tSEQ_S: 0x%04X\n"
+    				"\tLAT: %.4f\n"
+    				"\tLON: %.4f\n"
+    				"\tBEAR: %d\n"
+    				"\tFIX: %d\n"
+    				"\tHDOP: %d\n"
+    				"\tKNOTS: %d\n"
+    				"\tSPEED: %.3f kmph\n"
+    				"\tExten. %d \n"
+    				"\tSize: %d \n"
+    			 	"\tIgnition: %d\n"
+    			    "\tTurnon: %d\n"
+    				"\tTIME: %04d-%02d-%02d %02d:%02d:%02d UTC\n"
+    			    "\n"
+    				,opgps->cmd
+    				,opgps->len
+    				,ntohs(opgps->seq_l)
+    				,ntohs(opgps->seq_s)
+    				,GPS_DECODE_LOC(opgps->lat_sign,opgps->lat_deg,ntohs(opgps->lat_min))
+    				,GPS_DECODE_LOC(opgps->data.parts.lon_sign,opgps->lon_deg,ntohs(opgps->lon_min))
+    				,GPS_DECODE_OLD_BEARING(opgps->data.parts.bear2,opgps->bear1,opgps->bear0)
+    				,opgps->data.parts.fix
+    				,opgps->hdop
+    				,opgps->knots
+    				,GPS_DECODE_SPEED(opgps->knots)
+    				,opgps->ext
+    				,opgps->size
+    				,opgps->data.parts.ign
+    				,opgps->turnon
+    				,((ptime->tm_year+1900) & ~0x3) | opgps->year
+    				,opgps->month
+    				,opgps->day
+    				,opgps->hour
+    				,opgps->data.parts.mins
+    				,opgps->data.parts.secs
+    				);
+
+    }
+
+
+
+
+
+
 
 	trans = (transport_buf_p) buf;
 
@@ -236,7 +306,7 @@ void doTestAndDie() {
 	if ( frame_test_transport(buf,sizeof(buf)) ) {
 
 		printf("Transport check ok\n");
-		mydb_insert_transport_frame(db,0,0,buf,sizeof(buf));
+		mydb_insert_transport_frame(db,0,0,0,buf,sizeof(buf));
 
 
 		frm_cmd_gps_t gps;
@@ -305,7 +375,7 @@ void doTestAndDie() {
 			"\tTIME: %d %s\n"
 		    "\n"
 			,pgps->cmd
-			,ntohl(pgps->seq)
+			,ntohs(pgps->seq_l)
 			,GPS_DECODE_LOC(pgps->lat_sign,pgps->lat_deg,ntohs(pgps->lat_min))
 			,GPS_DECODE_LOC(pgps->lon_sign,pgps->lon_deg,ntohs(pgps->lon_min))
 			,GPS_DECODE_BEARING(pgps->bearing)

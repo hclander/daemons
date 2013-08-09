@@ -1,5 +1,8 @@
 // Estructuras para meter y sacar datos de las tramas
 
+#ifndef FRAMES_H_
+#define FRAMES_H_
+
 #include <sys/types.h>
 
 #define PACKED __attribute__((__packed__))
@@ -52,6 +55,8 @@ typedef struct {
 typedef transport_buf_t *transport_buf_p;
 
 
+// TRANSPORT START MASKS
+
 #define START_LITTLE_ENDIAN 0x80  // (1<<7)
 #define START_CRC			0x40  //(1<<6)
 #define START_UNDEFINED     0x30
@@ -67,7 +72,8 @@ typedef transport_buf_t *transport_buf_p;
 #define FRAME_CMD_MSG_BIN   0x0B
 #define FRAME_CMD_GPS_HUMAN 0x10
 #define FRAME_CMD_GPS_EPOCH 0x11
-#define FRAME_CMD_RTC_TIME  0x12
+#define FRAME_CMD_GPS_OLD   0x13
+#define FRAME_CMD_RTC_TIME  0x15
 #define FRAME_CMD_PROBE		0xA0
 #define FRAME_CMD_SENSOR0	0xD0
 #define FRAME_CMD_SENSOR1   0xE0
@@ -98,7 +104,11 @@ typedef transport_buf_t *transport_buf_p;
 typedef struct {
 
 	u_int8_t cmd;
-	u_int32_t seq;
+
+	u_int8_t len;
+
+	u_int16_t seq_l;
+	u_int16_t seq_s;
 
 	u_int8_t lat_deg:7;
 	u_int8_t lat_sign:1;
@@ -175,28 +185,49 @@ typedef frm_cmd_gps_t *frm_cmd_gps_p;
 
 typedef struct {
 
+	u_int8_t   cmd;
+	u_int8_t   len;
+
+	u_int16_t  seq_l;
+	u_int16_t  seq_s;
+
 	u_int8_t   hour:5;
-	u_int8_t   lon :2;
+	u_int8_t   size :2;
 	u_int8_t   ext :1;
 
-	u_int16_t  ew  :1;
-	u_int16_t  ign :1;      // ignition contacto
-	u_int16_t  fix :1;
-	u_int16_t  bear2 :1;      //bearing 2
-	u_int16_t  secs :6;
-	u_int16_t  mins :6;
+	// Una pequeña gran faena que los mins y los secs esten en bytes distintos...
+
+	union {
+		struct {
+			u_int16_t  lon_sign:1;  //E/W
+			u_int16_t  ign :1;      // ignition contacto
+			u_int16_t  fix :1;
+			u_int16_t  bear2 :1;      //bearing 2
+			u_int16_t  secs :6;
+			u_int16_t  mins :6;
+		} parts;
+
+		struct {
+			u_int8_t byte0;
+			u_int8_t byte1;
+
+		} asBytes;
+
+		u_int16_t  asWord;
+	} data;
 
 	u_int16_t  lat_min;
 	u_int16_t  lon_min;
 
-	u_int8_t   bear1 :1;
 	u_int8_t   knots:7;
+	u_int8_t   bear1 :1;
 
-	u_int8_t   bear0 :1;
 	u_int8_t   hdop  :7;
+	u_int8_t   bear0 :1;
 
-	u_int8_t   ns:1;
 	u_int8_t   lat_deg:7;
+	u_int8_t   lat_sign:1;   // N/S
+
 
 	u_int8_t   lon_deg;
 
@@ -213,7 +244,18 @@ typedef struct {
 	u_int8_t   blk_end;
 
 
-} PACKED frm_cmd_old_gps_t;
+} PACKED frm_cmd_gps_old_t;
+
+typedef frm_cmd_gps_old_t *frm_cmd_gps_old_p;
+
+typedef union {
+
+	frm_cmd_gps_t     cur;   // current
+	frm_cmd_gps_old_t old;
+
+} PACKED frm_cmd_gps_all_t;
+
+typedef frm_cmd_gps_all_t *frm_cmd_gps_all_p;
 
 //typedef struct {
 //
@@ -222,7 +264,7 @@ typedef struct {
 //
 //typedef frm_cmd_decoded_gps_t *frm_cmd_decoded_gps_p;
 
-
+#define GPS_STRUCT_MIN_SIZE (sizeof(frm_cmd_gps_old_t)<sizeof(frm_cmd_gps_t)?sizeof(frm_cmd_gps_old_t):sizeof(frm_cmd_gps_t))
 
 #define KNOTS_TO_KMPH  1.852
 #define MIN_TO_DEC 	  60000.0
@@ -230,6 +272,7 @@ typedef struct {
 #define GPS_DECODE_LOC(sign,deg,min) ( (deg+min/MIN_TO_DEC) * (1+sign*-2))
 #define GPS_DECODE_LOC_1M(sign,deg,min) ( (deg+min/MIN_TO_DEC) * (1+sign*-2) * 1000000)
 #define GPS_DECODE_BEARING(bearing) (bearing*4)
+#define GPS_DECODE_OLD_BEARING(br2,br1,br0)  ( ((br2<<2) | (br1<<1) | br0)*45 )
 
 #define GPS_ENCODE_LOCMIN(loc)  ( (loc - (int) loc) * MIN_TO_DEC * (loc<0?-1:1) )
 #define GPS_ENCODE_SPEED(kpmh) (kmph / KNOTS_TO_KMPH)
@@ -240,6 +283,10 @@ typedef struct {
 int frame_xor_checksum(unsigned char *buffer, size_t offset, size_t len);
 int frame_test_transport(unsigned char *buffer, size_t len );
 int frame_test_gps(unsigned char *buffer, size_t len);
+int frame_test_gps_old(unsigned char *buffer, size_t len);
 int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
+int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
 int frame_decode_transport(unsigned char *buffer, size_t len);
 int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen );
+
+#endif //FRAMES_H_

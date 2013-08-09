@@ -19,8 +19,6 @@
 #include "frames.h"
 #include "lib/tools.h"
 
-#include "lib/project.h"
-
 #define UDP_DEFAULT_PORT 4490
 
 int udpPort =UDP_DEFAULT_PORT;
@@ -114,7 +112,9 @@ int runSimulator(char *ip, int port) {
 		knots = mps * MPS_TO_KNOTS;
 
 		gps.cmd = 0x11;
-		gps.seq = seq++;
+		gps.len =0;
+		gps.seq_l= seq++;
+		gps.seq_s=0;
 		gps.bearing = GPS_ENCODE_BEARING(bear);
 		gps.knots = knots;
 		gps.lat_sign = lat<0?1:0;
