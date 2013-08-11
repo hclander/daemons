@@ -66,7 +66,7 @@ int runSimulator(char *ip, int port) {
 	long x, y, d;
 	float lat, lon;
 	frm_cmd_gps_t gps;
-	char buff[MAX_TRANS_BUFF_SIZE];
+	char buff[TRANS_MAX_BUFF_SIZE];
 	size_t transLen;
 	int seq =0;
 	int sckt;

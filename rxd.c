@@ -117,6 +117,25 @@ void signalHandler(int signal) {
 	}
 }
 
+
+int sendAck(int sckt, long serialNumber,struct sockaddr *addTo, socklen_t toLen ) {
+	int result = false;
+	unsigned char buf[TRANS_MAX_BUFF_SIZE];
+	frm_cmd_ack_t ack;
+	int len = sizeof(ack);
+
+
+	if ( frame_encode_ack(serialNumber,0,&ack,&len)){
+		len =sizeof(buf);
+		if (frame_encode_transport(0,&ack,sizeof(ack),buf,&len )) {
+			sendto(sckt,buf,len,0,addTo,toLen);
+			result = true;
+		}
+	}
+
+	return result;
+}
+
 //Very quick & dirty UDP Server
 //TODO: Improving performance using  select()/poll()  and maybe multiprocess or multithreading.
 
@@ -127,7 +146,7 @@ int runUDPserver() {
 	socklen_t fromLen;
 	struct sockaddr_in server, from;
 
-	char buf[MAX_TRANS_BUFF_SIZE];
+	char buf[TRANS_MAX_BUFF_SIZE];
 	DB_T *db;
 
 	LOG_D("Iniciando servidor UDP");
@@ -173,7 +192,7 @@ int runUDPserver() {
 
 	while(!terminate) {  // loop until terminate
 
-	   n = recvfrom(sckt,buf,MAX_TRANS_BUFF_SIZE,0,(struct sockaddr *)&from,&fromLen);
+	   n = recvfrom(sckt,buf,TRANS_MAX_BUFF_SIZE,0,(struct sockaddr *)&from,&fromLen);
 
 	   // De momento no señalizamos nada
 	   //sendto(sckt,MSG_OK,sizeof(MSG_OK),0,(struct sockaddr *)&from,fromLen);
@@ -187,6 +206,35 @@ int runUDPserver() {
 
 		   // Ahora sólo guaradamos la carga util . El resto se guarda como campos de la tabla
 		   mydb_insert_transport_frame(db,ntohl(from.sin_addr.s_addr),ntohs(from.sin_port),ntohl(trans->header.sn),buf+TRANS_PREAMBLE_SIZE,n-TRANS_OVERLOAD);
+
+		   // TODO Esto hay que cambiarlo;
+		   // Mandar ACKs
+		   int size = n-TRANS_OVERLOAD;
+		   int len;
+		   int offset = TRANS_PREAMBLE_SIZE;
+		   long sn = ntohl(trans->header.sn);
+
+		   len = size;
+		   if (frame_test_gps(buf+offset,&len)) {
+			   offset +=len;
+			   size   -=len;
+
+			   // TODO implementar una pequeña lista para solo enviar
+			   // acks cada X tiempo
+
+			   sendAck(sckt,sn,(struct sockaddr *)&from,fromLen);
+		   }
+
+		   len = size;
+		   if (frame_test_cnx(buf+offset,&len)) {
+			   offset +=len;
+			   size   -=len;
+
+			   sendAck(sckt,sn,(struct sockaddr *)&from,fromLen);
+		   }
+
+		   // Otros test;
+
 
 	   }
 

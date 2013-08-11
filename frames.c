@@ -41,32 +41,36 @@ int frame_test_transport(unsigned char *buffer, size_t len ) {
 }
 
 
-int frame_test_gps_old(unsigned char *buffer, size_t len) {
+int frame_test_gps_old(unsigned char *buffer, size_t *len) {
 	int result = false;
 
 	frm_cmd_gps_old_p src;
 	int minLen = sizeof(frm_cmd_gps_old_t);
 
-	if (len>=minLen){
+	if (*len>=minLen){
 		src = (frm_cmd_gps_old_p) buffer;
 
 		if (src->cmd ==FRAME_CMD_GPS_OLD) {
 			if( src->len>=minLen) {
 				result = true;
+				if (src->len > minLen)
+					minLen = src->len;
 			}
 		}
 	}
 
+	*len = minLen;
+
 	return result;
 }
 
-int frame_test_gps(unsigned char *buffer, size_t len) {
+int frame_test_gps(unsigned char *buffer, size_t *len) {
 	int result = false;
 
 	frm_cmd_gps_p src;
 	int minLen = sizeof(frm_cmd_gps_t);
 
-	if (len>=minLen) {
+	if (*len>=minLen) {
 
 		src = (frm_cmd_gps_p) buffer;
 
@@ -77,16 +81,21 @@ int frame_test_gps(unsigned char *buffer, size_t len) {
 			if ((src->len==0) || (src->len>=minLen)) {
 
 				result = true;
+
+				if (src->len>minLen)
+					minLen = src->len;
 			}
 		}
 
 	}
 
+	*len=minLen;
+
 	return result;
 
 }
 
-int frame_test_gps_all(unsigned char *buffer, size_t len) {
+int frame_test_gps_all(unsigned char *buffer, size_t *len) {
 
 	return frame_test_gps(buffer,len) || frame_test_gps_old(buffer,len);
 }
@@ -97,7 +106,7 @@ int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *g
 	int minLen=sizeof(frm_cmd_gps_old_t);
 
 	if (len>=minLen) {
-		if (frame_test_gps_old(buffer,*gpsLen)) {
+		if (frame_test_gps_old(buffer,gpsLen)) {
 
 			memcpy(dst,buffer,minLen);
 
@@ -118,10 +127,10 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 
 	int minLen=sizeof(frm_cmd_gps_t);
 
-	if (len>= minLen)
-		if (frame_test_gps(buffer,*gpsLen)) {
+	if (len>= minLen) {
+		if (frame_test_gps(buffer,gpsLen)) {
 
-			memcpy(dst,buffer,minLen);
+			memcpy(dst,buffer,*gpsLen);
 
 			result = true;
 			//FIXME Decode here fields here??
@@ -129,8 +138,10 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 //			gps->
 
 		}
+	} else {
 
-	*gpsLen = minLen;
+		*gpsLen = minLen;
+	}
 
 	return result;
 }
@@ -172,7 +183,7 @@ int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *
 
 	*dstLen=srcLen+TRANS_OVERLOAD;
 
-   return result;;
+   return result;
 }
 
 int frame_decode_transport(unsigned char *buffer, size_t len){
@@ -180,8 +191,46 @@ int frame_decode_transport(unsigned char *buffer, size_t len){
 	return 0;
 }
 
+int frame_encode_ack(long serialNumber, int cmd, void *dst, size_t *len) {
+	int result = false;
 
-// TODO ACK Varios EF XXXX 00 CS  para 0x11
+	if (*len>=sizeof(frm_cmd_ack_t)) {
+		frm_cmd_ack_p ack = (frm_cmd_ack_p) dst;
+
+		ack->cmd = FRAME_SVR_CMD_ACK;
+
+		ack->len = 0;
+
+		ack->sn  = htonl(serialNumber);
+
+	}
+
+	*len=sizeof(frm_cmd_ack_t);
+
+	return false;
+}
+
+int frame_test_cnx(void *src, size_t *len) {
+	int result = false;
+
+	if (*len >= sizeof(frm_cmd_cnx_t)) {
+
+		frm_cmd_cnx_p cnx = (frm_cmd_cnx_p) src;
+
+		if (cnx -> cmd == FRAME_CMD_CONECTION) {
+
+			if (!frame_xor_checksum(cnx->imei,0,sizeof(cnx->imei)+1))
+				result = true;
+		}
+	}
+
+	*len = sizeof(frm_cmd_cnx_t);
+
+	return false;
+}
+
+
+// TODO ACK Varios EF XX XX 00 CS  para 0x11
 
 // TODO Ack nserie E9 00 00 XX XX CS  para 0x06
 

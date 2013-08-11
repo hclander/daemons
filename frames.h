@@ -7,7 +7,7 @@
 
 #define PACKED __attribute__((__packed__))
 
-#define MAX_TRANS_BUFF_SIZE 1500   //TODO: Revisar esto
+#define TRANS_MAX_BUFF_SIZE 1500   //TODO: Revisar esto
 
 #define TRANS_HEADER_START_SIZE 1
 #define TRANS_HEADER_LENGTH_SIZE 2
@@ -49,7 +49,7 @@ typedef start_header_t *start_header_p;
 
 typedef struct {
 	start_header_t header;
-	unsigned char data[MAX_TRANS_BUFF_SIZE];
+	unsigned char data[TRANS_MAX_BUFF_SIZE];
 } PACKED transport_buf_t;
 
 typedef transport_buf_t *transport_buf_p;
@@ -79,6 +79,10 @@ typedef transport_buf_t *transport_buf_p;
 #define FRAME_CMD_SENSOR1   0xE0
 #define FRAME_CMD_PROBE_SENSOR_MASK 0xF0
 
+
+// FRAME SERVER COMMANDS
+
+#define FRAME_SVR_CMD_ACK  0xEF
 
 
 // GPS COMMAND
@@ -257,6 +261,46 @@ typedef union {
 
 typedef frm_cmd_gps_all_t *frm_cmd_gps_all_p;
 
+
+// TRAMA DE CONEXION
+//- 0x06 = Conexión: Lon(1) IMEI(15) IMEI_XOR(1) MO(1) VS(2) MC(1) [preferiblemente irá acompañando a una trama Gps] [tb. podría usar el formato "viejo" dentro de una trama compatible; en este caso tb. sería preferible que fuese precedida de una trama Gps]
+//            - Lon: puede ser 0 (toma valor implícito) o >20 (cuando queramos añadir bytes nuevos)
+//            - IMEI: podría ser guardado en Ascii en otra zona de la memoria (o en "hexa" por el método viejo, en el lugar "viejo")
+//            - IMEI_XOR: XOR de los dígitos del IMEI (se alamcena con el mismo método que se almacene el IMEI)
+//            - MO: Modo operación (0, 4, 5)
+//            - VS: Versión Software
+//            - MC: Motivo Conexión
+
+typedef struct {
+	u_int8_t cmd;
+	u_int8_t len;
+	u_int8_t imei[15];
+	u_int8_t ixor;
+	u_int8_t om;  // Operation mode;
+	u_int16_t sv; // Software Version
+	u_int8_t cr ;  // Conection Reason
+
+} PACKED frm_cmd_cnx_t;
+
+typedef frm_cmd_cnx_t *frm_cmd_cnx_p;
+
+
+typedef struct {
+	u_int8_t cmd;
+	u_int8_t len;
+	u_int32_t sn;
+
+} PACKED frm_cmd_ack_t;
+typedef frm_cmd_ack_t *frm_cmd_ack_p;
+
+//typedef struct {
+//
+//} PACKED frm_cmd_ack_E9_t;
+//
+//typedef frm_cmd_ack_E9_t *frm_cmd_ack_E9_p;
+
+
+
 //typedef struct {
 //
 //
@@ -282,11 +326,13 @@ typedef frm_cmd_gps_all_t *frm_cmd_gps_all_p;
 
 int frame_xor_checksum(unsigned char *buffer, size_t offset, size_t len);
 int frame_test_transport(unsigned char *buffer, size_t len );
-int frame_test_gps(unsigned char *buffer, size_t len);
-int frame_test_gps_old(unsigned char *buffer, size_t len);
+int frame_test_gps(unsigned char *buffer, size_t *len);
+int frame_test_gps_old(unsigned char *buffer, size_t *len);
 int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
 int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
 int frame_decode_transport(unsigned char *buffer, size_t len);
 int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen );
+int frame_encode_ack(long serialNumber, int cmd, void *dst, size_t *len);
+int frame_test_cnx(void *src, size_t *len);
 
 #endif //FRAMES_H_
