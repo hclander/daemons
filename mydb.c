@@ -59,7 +59,7 @@ int mydb_update_transport_frame_status(DB_T *db, int rx_id, int status) {
 
 int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t len) {
 
-	 char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, len, seql, seqs, lat, lon, bearing, speed, knots, fix, hdop,time) "
+	 char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, len, seq_l, seq_s, lat, lon, bearing, speed, knots, fix, hdop,time) "
 			          " VALUES (%d, %d, %d,%d,%d, %d, %f, %f, %d, %f, %d, %d, %d , %d)";
 
 	struct tm tp;

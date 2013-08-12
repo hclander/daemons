@@ -23,7 +23,7 @@
 
 #define TRANS_FOOTER_SIZE TRANS_FOOTER_XOR_SIZE
 
-#define TRANS_OVERLOAD TRANS_PREAMBLE_SIZE + TRANS_FOOTER_SIZE
+#define TRANS_OVERLOAD (TRANS_PREAMBLE_SIZE + TRANS_FOOTER_SIZE)
 
 typedef union {
 
@@ -334,5 +334,7 @@ int frame_decode_transport(unsigned char *buffer, size_t len);
 int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen );
 int frame_encode_ack(long serialNumber, int cmd, void *dst, size_t *len);
 int frame_test_cnx(void *src, size_t *len);
+int frame_encode_cnx(char *imei,int om, int sv, int cr, void *dst,size_t *len);
+int frame_encode_gps(int seq,int bearing,int knots, float lat, float lon, int fix, int hdop, time_t aTime, void *dst ,size_t *len);
 
 #endif //FRAMES_H_

@@ -249,7 +249,7 @@ Cada trama de datos solo llevará una subtrama de comando, para facilitar la tar
 
         - 0xEA = Pet. ckecksums: Lon(1) BL_ini(2) BL_fin(2)
                 -Lon: puede ser 0 (toma valor implícito) o >4 (cuando queramos añadir bytes nuevos)
-                -Si BL_ini=BL_fin=0 estamos pidiendo toda la eeprom; para Dataflash-Firmware usamos 0x010001F0, para Dataflash-Backup usamos 0x000F00FF, para Dataflash-Radares usamos 0x020002F0.
+                -Si BL_ini=BL_fin=0 estamos pidiendo toda la eeprom; para Dataflash-Firmware usamos 0x010001F0, para Dataflash-B	up usamos 0x000F00FF, para Dataflash-Radares usamos 0x020002F0.
 
         - 0xEB = Bloque reprogr.: Lon(2) Bloque(2) Datos(n)
                 -Datos: máximo 1451 bytes

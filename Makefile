@@ -4,7 +4,7 @@ CFLAGS=-std=c99 -D_GNU_SOURCE $(DEBUG)
 
 LDLIBS=-lmysqlclient -lpq -lodbc
 
-LIB_SOURCES=lib/db.c lib/db.h lib/file.c lib/file.h lib/log.c lib/log.h lib/tools.c lib/tools.h
+LIB_SOURCES=lib/db.c lib/db.h lib/file.c lib/file.h lib/log.c lib/log.h lib/tools.c lib/tools.h lib/hashinttable.c lib/hashinttable.h
 
 COMMON_SOURCES= mydb.c mydb.h frames.c frames.h $(LIB_SOURCES)
 

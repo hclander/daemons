@@ -1,0 +1,109 @@
+/*
+ * hashinttable.c
+ *
+ *  Created on: 12/08/2013
+ *      Author: jcmendez
+ */
+
+#include <stdlib.h>
+#include <string.h>
+#include "hashinttable.h"
+
+hashint_table_t * hashint_table_create(int size) {
+	hashint_table_t *ht = calloc(1,sizeof(hashint_table_t));
+
+	if(size>0)
+		ht->size = size;
+	else
+		ht->size = HASHINT_DEFAULT_SIZE;
+
+	ht->items = calloc(ht->size,sizeof(hashint_inner_item_t));
+	ht->len = 0;
+
+	return ht;
+}
+
+void hashint_table_destroy( hashint_table_t *ht, int freeItems) {
+	if(ht) {
+		if (freeItems) {
+			for (int i=0; i<ht->len; i++)
+				free(ht->items[i].data);
+		}
+		free(ht->items);
+		free(ht);
+	}
+}
+
+int hashint_ensure_size(hashint_table_t *ht) {
+	if (ht->len == ht->size) {  // Se ha agotado el espacio
+		ht->size+=HASHINT_DEFAULT_SIZE;
+		ht->items=realloc(ht->items,ht->size*sizeof(hashint_inner_item_t));
+	}
+	return 0;
+}
+
+int hashint_table_add(hashint_table_t *ht,long key, void *data) {
+	int idx;
+
+	idx=hashint_table_indexOf(ht,key);
+
+	if (idx!=-1)
+		return idx;
+
+	hashint_ensure_size(ht);
+	ht->items[ht->len].key = key;
+	ht->items[ht->len].data = data;
+	ht->len++;
+
+	return ht->len-1;
+}
+
+int hashint_table_indexOf(hashint_table_t *ht, long key) {
+
+	for(int i=0; i<ht->len;i++)
+		if (ht->items[i].key==key)
+			return i;
+
+	return -1;
+}
+
+void *hashint_table_get(hashint_table_t *ht,long key) {
+	int idx;
+
+	idx = hashint_table_indexOf(ht,key);
+
+	if (idx!=-1)
+		return ht->items[idx].data;
+
+	return NULL;
+}
+
+
+
+int hashint_table_delete(hashint_table_t *ht, long key, int freeItem) {
+	int idx=-1;
+
+	idx=hashint_table_indexOf(ht,key);
+
+	if (idx!=-1) {
+		if (freeItem)
+			free(ht->items[idx].data);
+		ht->len--;
+		if (idx!=ht->len) {
+			//Dememos mover los elementos
+			memmove(&ht->items[idx],&ht->items[idx+1],(ht->len-idx)*sizeof(hashint_inner_item_t));
+		}
+	}
+
+	return idx;
+}
+
+
+
+int hashint_table_getSize(hashint_table_t *ht) {
+	return ht->size;
+}
+
+int hashint_table_getLen(hashint_table_t *ht) {
+	return ht->len;
+}

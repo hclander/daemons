@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <time.h>
 
 #include "frames.h"
 
@@ -32,7 +33,7 @@ int frame_test_transport(unsigned char *buffer, size_t len ) {
 			// if ( trans->header.start.flags.crc)
 
 			//Trick: frame_xor_checksum returns 0 if checksum is ok
-			if (!frame_xor_checksum(buffer,TRANS_HEADER_SIZE,datalen))   //
+			if (!frame_xor_checksum(buffer,0,datalen+TRANS_HEADER_SIZE))   //
 				result = true;
 		}
 	}
@@ -153,6 +154,9 @@ int frame_decode_gps_all(unsigned char *buffer, size_t len, void *dst, size_t *g
 }
 
 
+
+
+
 int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen ) {
 
 	int result = false;
@@ -163,19 +167,23 @@ int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *
 
 		transport_buf_p trans = (transport_buf_p) dst;
 
+		if (src ==NULL ) {
+			src = dst;
+		}
+		//memcpy(dst+TRANS_PREAMBLE_SIZE,src,srcLen);
+		memmove(dst+TRANS_PREAMBLE_SIZE,src,srcLen);  // To supports overlaps
+
 		trans->header.start.start = 0x00;
 
 		trans->header.sn = htonl(ns);
 
 		trans->header.length = htons(TRANS_OVERLOAD - TRANS_HEADER_SIZE + srcLen);
 
-		memcpy(dst+TRANS_PREAMBLE_SIZE,src,srcLen);
 
-		chkSum=frame_xor_checksum(dst,TRANS_HEADER_SIZE,TRANS_OVERLOAD - TRANS_HEADER_SIZE + srcLen-1);
+		chkSum=frame_xor_checksum(dst,0,TRANS_OVERLOAD + srcLen-1);
 
 		//pchkSum = dst +
 		((char *)dst)[srcLen+TRANS_OVERLOAD-TRANS_FOOTER_SIZE] =chkSum;
-
 
 		result = true;
 
@@ -185,6 +193,16 @@ int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *
 
    return result;
 }
+
+
+//int frame_envelop_transport(int ns, size_t srcLen, void *buf, size_t *bufLen ) {
+//
+//	int result = false;
+//
+//
+//	return result;
+//}
+
 
 int frame_decode_transport(unsigned char *buffer, size_t len){
 
@@ -203,11 +221,13 @@ int frame_encode_ack(long serialNumber, int cmd, void *dst, size_t *len) {
 
 		ack->sn  = htonl(serialNumber);
 
+		result = true;
+
 	}
 
 	*len=sizeof(frm_cmd_ack_t);
 
-	return false;
+	return result;
 }
 
 int frame_test_cnx(void *src, size_t *len) {
@@ -226,9 +246,61 @@ int frame_test_cnx(void *src, size_t *len) {
 
 	*len = sizeof(frm_cmd_cnx_t);
 
-	return false;
+	return result;
 }
 
+int frame_encode_gps(int seq,int bearing,int knots, float lat, float lon, int fix, int hdop, time_t aTime, void *dst ,size_t *len) {
+	int result = false;
+
+	if (*len>=sizeof(frm_cmd_gps_t)) {
+		frm_cmd_gps_p gps = (frm_cmd_gps_p) dst;
+
+		gps->cmd = 0x11;
+		gps->len =0;
+		gps->seq_l= seq;
+		gps->seq_s=0;
+		gps->bearing = GPS_ENCODE_BEARING(bearing);
+		gps->knots = knots;
+		gps->lat_sign = lat<0?1:0;
+		gps->lat_deg = gps->lat_sign?-lat:lat;
+		gps->lat_min =htons(GPS_ENCODE_LOCMIN(lat));
+		gps->lon_sign = lon<0?1:0;
+		gps->lon_deg = gps->lon_sign?-lon:lon;
+		gps->lon_min = htons(GPS_ENCODE_LOCMIN(lon));
+		gps->fix = fix;
+		gps->hdop = hdop;
+		gps->time.epoch = aTime?htonl(aTime):htonl(time(NULL));
+
+	}
+
+	*len=sizeof(frm_cmd_gps_t);
+
+	return result;
+}
+
+int frame_encode_cnx(char *imei,int om, int sv, int cr, void *dst,size_t *len) {
+	int result = false;
+
+	if (*len>=sizeof(frm_cmd_cnx_t)) {
+		frm_cmd_cnx_p cnx = (frm_cmd_cnx_p) dst;
+		cnx->cmd = FRAME_CMD_CONECTION;
+		cnx->len = 0;
+		strncpy(cnx->imei,imei,sizeof(cnx->imei));
+		cnx->ixor = frame_xor_checksum(cnx->imei,0,sizeof(cnx->imei));
+
+		cnx->om = om;
+
+		cnx->sv = htons(sv);
+		cnx->cr = cr;
+
+		result = true;
+
+	}
+
+	*len = sizeof(frm_cmd_cnx_t);
+
+	return result;
+}
 
 // TODO ACK Varios EF XX XX 00 CS  para 0x11
 

@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 
 #include "lib/log.h"
+#include "lib/hashinttable.h"
 #include "frames.h"
 #include "mydb.h"
 
@@ -118,11 +119,12 @@ void signalHandler(int signal) {
 }
 
 
+
 int sendAck(int sckt, long serialNumber,struct sockaddr *addTo, socklen_t toLen ) {
 	int result = false;
 	unsigned char buf[TRANS_MAX_BUFF_SIZE];
 	frm_cmd_ack_t ack;
-	int len = sizeof(ack);
+	size_t len = sizeof(ack);
 
 
 	if ( frame_encode_ack(serialNumber,0,&ack,&len)){
@@ -136,6 +138,18 @@ int sendAck(int sckt, long serialNumber,struct sockaddr *addTo, socklen_t toLen 
 	return result;
 }
 
+int sendAckOld(int sckt, long serialNumber,struct sockaddr *addTo, socklen_t toLen ) {
+	int result = false;
+
+	unsigned char ackOld[]={0xEF,0x00,0x00,0x00,0xEF};
+
+	sendto(sckt,ackOld,sizeof(ackOld),0,addTo,toLen);
+
+	result = true;
+
+    return result;
+}
+
 //Very quick & dirty UDP Server
 //TODO: Improving performance using  select()/poll()  and maybe multiprocess or multithreading.
 
@@ -145,6 +159,9 @@ int runUDPserver() {
 	int n;
 	socklen_t fromLen;
 	struct sockaddr_in server, from;
+
+	hashint_table_t *ht;
+	time_t *lastTime;
 
 	char buf[TRANS_MAX_BUFF_SIZE];
 	DB_T *db;
@@ -181,6 +198,10 @@ int runUDPserver() {
 
     LOG_F_N("Server listening on port %u",udpPort);
 
+    ht = hashint_table_create(0);
+
+
+
 	fromLen = sizeof(from);
 
 	db = db_create("localhost","Yii","jcmendez","locatel");
@@ -188,6 +209,7 @@ int runUDPserver() {
 	if (!db_connect(db)) {
 		die("Error connecting database");
 	}
+
 	//TODO: select()/poll()
 
 	while(!terminate) {  // loop until terminate
@@ -200,6 +222,16 @@ int runUDPserver() {
 
 	   LOG_F_N("Incoming [%s:%u (%d)]",inet_ntoa(from.sin_addr),ntohs(from.sin_port),n);
 
+
+
+
+	   if ( !(lastTime=hashint_table_get(ht,ntohl(from.sin_addr.s_addr)))){
+		   lastTime = malloc(sizeof(time_t));
+		   *lastTime = time(NULL);
+		   hashint_table_add(ht,ntohl(from.sin_addr.s_addr),lastTime);
+	   }
+
+
 	   if (frame_test_transport(buf,n)) {
 
 		   transport_buf_p trans =(transport_buf_p) buf;
@@ -210,7 +242,7 @@ int runUDPserver() {
 		   // TODO Esto hay que cambiarlo;
 		   // Mandar ACKs
 		   int size = n-TRANS_OVERLOAD;
-		   int len;
+		   size_t len;
 		   int offset = TRANS_PREAMBLE_SIZE;
 		   long sn = ntohl(trans->header.sn);
 
@@ -222,7 +254,10 @@ int runUDPserver() {
 			   // TODO implementar una pequeña lista para solo enviar
 			   // acks cada X tiempo
 
-			   sendAck(sckt,sn,(struct sockaddr *)&from,fromLen);
+			   lastTime = hashint_table_get(ht,ntohl(from.sin_addr.s_addr));
+
+			   if ( time(NULL)-(*lastTime)>120)
+				   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
 		   }
 
 		   len = size;
@@ -230,7 +265,7 @@ int runUDPserver() {
 			   offset +=len;
 			   size   -=len;
 
-			   sendAck(sckt,sn,(struct sockaddr *)&from,fromLen);
+			   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
 		   }
 
 		   // Otros test;
@@ -238,11 +273,14 @@ int runUDPserver() {
 
 	   }
 
+	   *lastTime = time(NULL);
+
 	   //TODO: Guardar los datos a la BBDD
 
 	}
 
 	close(sckt);
+	hashint_table_destroy(ht,true);
 	db_destroy(db);
 
 	return EXIT_SUCCESS;

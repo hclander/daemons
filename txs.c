@@ -25,8 +25,11 @@ int udpPort =UDP_DEFAULT_PORT;
 int verboseLevel= 1;
 int defaultLapse = 5;
 char ip[20] = "127.0.0.1";
-
+bool addCnxFrame = false;
 bool terminate = false;
+bool sendFile = false;
+
+char *fileName;
 
 #define MPS_TO_KNOTS  1.94384
 #define MPS_TO_KMPH  3.6
@@ -40,11 +43,13 @@ const char *TAG="TXs";
 void help() {
   printf("txs v1.0 Very Simple frame sender simulator \n\n"
 		 "Syntaxis:\n"
-		 "\n\ttxs [ -h | --help ] [-i | --ip < ip_server > ][ -p | --port <udp_port> ] [ -l | --lapse ] [ -v | --verbose  < 0 | 1 | 2 > ]  \n"
+		 "\n\ttxs [ -h | --help ] [-i | --ip < ip_server > ][ -p | --port <udp_port> ] [-c | --cnx ] [ -l | --lapse ] [ -f | --file ] [ -v | --verbose  < 0 | 1 | 2 > ]  \n"
 		 "\n\twhere:\n"
 		 "\t -h | --help     : Shows this help.\n"
 		 "\t -i | --ip       : Ip server.\n"
 		 "\t -p | --port     : UDP port to listen.\n"
+		 "\t -c | --cnx      : Append a connection frame.\n"
+		 "\t -f | --file     : Send file content. \n"
 		 "\t -l | --lapse    : Time lapse to send frames.\n"
 		 "\t -v | --verbose  : Sets the verbose level( 0 Error , 1 Notice, 2  Debug )\n"
 	);
@@ -55,6 +60,44 @@ void die(char *msg) {
   exit(EXIT_FAILURE);
 }
 
+int sendFileContent(char *ip,int port, char *fileName) {
+	char buff[TRANS_MAX_BUFF_SIZE];
+	size_t transLen;
+	int seq =0;
+	int sckt;
+	FILE *fin;
+	struct sockaddr_in server;
+	// INIT SOCKET
+	printf("Incializando...\n");
+	memset(&server,0,sizeof(server));
+
+	sckt= socket(AF_INET,SOCK_DGRAM,0);
+	if (sckt<0) {
+			die("Error en la creacion del socket");
+	}
+
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = inet_addr(ip);
+	server.sin_port = htons(port);
+
+	fin = fopen(fileName,"r");
+
+	if (!fin) {
+		die("No se pudo abrir el fichero");
+
+	}
+
+	transLen=fread(buff,1,sizeof(buff),fin);
+
+	sendto(sckt,buff,transLen,0,(struct sockaddr *)&server,sizeof(server));
+
+	printf("Enviados %d bytes.\n",transLen);
+
+	close(sckt);
+	fclose(fin);
+
+	return 0;
+}
 
 int runSimulator(char *ip, int port) {
 
@@ -111,27 +154,41 @@ int runSimulator(char *ip, int port) {
 		lon = x2lon(x);
 		knots = mps * MPS_TO_KNOTS;
 
-		gps.cmd = 0x11;
-		gps.len =0;
-		gps.seq_l= seq++;
-		gps.seq_s=0;
-		gps.bearing = GPS_ENCODE_BEARING(bear);
-		gps.knots = knots;
-		gps.lat_sign = lat<0?1:0;
-		gps.lat_deg = gps.lat_sign?-lat:lat;
-		gps.lat_min =htons(GPS_ENCODE_LOCMIN(lat));
-		gps.lon_sign = lon<0?1:0;
-		gps.lon_deg = gps.lon_sign?-lon:lon;
-		gps.lon_min = htons(GPS_ENCODE_LOCMIN(lon));
+//		gps.cmd = 0x11;
+//		gps.len =0;
+//		gps.seq_l= seq++;
+//		gps.seq_s=0;
+//		gps.bearing = GPS_ENCODE_BEARING(bear);
+//		gps.knots = knots;
+//		gps.lat_sign = lat<0?1:0;
+//		gps.lat_deg = gps.lat_sign?-lat:lat;
+//		gps.lat_min =htons(GPS_ENCODE_LOCMIN(lat));
+//		gps.lon_sign = lon<0?1:0;
+//		gps.lon_deg = gps.lon_sign?-lon:lon;
+//		gps.lon_min = htons(GPS_ENCODE_LOCMIN(lon));
+//
+//		gps.fix = 1;
+//		gps.hdop = rnd1(20);
+//		gps.time.epoch = htonl(time(NULL));
 
-		gps.fix = 1;
-		gps.hdop = rnd1(20);
-		gps.time.epoch = htonl(time(NULL));
+		int offset=0;
+		transLen = sizeof(buff);
 
+		frame_encode_gps(seq++,bear,knots,lat,lon,1,rnd1(20),0,buff,&transLen);
+
+		offset +=transLen;
+
+		if (addCnxFrame) {
+
+			transLen = sizeof(buff) - offset;
+			frame_encode_cnx("1234567890",0,1,0,buff+offset,&transLen);
+			offset +=transLen;
+
+		}
 
 		transLen = sizeof(buff);
 
-		if ( frame_encode_transport(1,&gps,sizeof(gps),buff,&transLen) ) {
+		if ( frame_encode_transport(1,NULL,offset,buff,&transLen) ) {
 
 //			if (frame_test_transport(buff,transLen)) {
 //				printf("Trama de transporte verificada\n");
@@ -148,6 +205,7 @@ int runSimulator(char *ip, int port) {
 		sleep(lapse);
 	}
 
+	close(sckt);
 	return 0;
 
 }
@@ -160,6 +218,8 @@ void parseArgs(int argc, char **argv) {
 	    		{"help",0,0,'h'},
 	    		{"ip",1,0,'i'},
 	    		{"port",1,0,'p'},
+	    		{"file",1,0,'f'},
+	    		{"cnx",0,0,'c'},
 	    		{"lapse",1,0,'l'},
 	    		{"verbose",1,0,'v'},
 	    		{0,0,0,0}
@@ -168,7 +228,7 @@ void parseArgs(int argc, char **argv) {
 		//Parseo de parametros;
 	    int c;
 
-	    while ( (c = getopt_long(argc,argv,"hi:p:l:v:n",longOptions,NULL)) != -1) {
+	    while ( (c = getopt_long(argc,argv,"hcf:i:p:l:v:n",longOptions,NULL)) != -1) {
 
 	    	if (noArgs)
 	    		noArgs = false;
@@ -180,6 +240,14 @@ void parseArgs(int argc, char **argv) {
 	    			break;
 				case 'p':
 					udpPort = atoi(optarg);
+					break;
+
+				case 'f':
+					sendFile = true;
+					fileName = optarg;
+					break;
+				case 'c':
+					addCnxFrame = true;
 					break;
 
 				case 'l':
@@ -246,7 +314,10 @@ int main(int argc, char **argv) {
 
 	parseArgs(argc,argv);
 
-	exitCode = runSimulator(ip,udpPort);
+	if (sendFile)
+		exitCode = sendFileContent(ip,udpPort,fileName);
+	else
+		exitCode = runSimulator(ip,udpPort);
 
 	return exitCode;
 
