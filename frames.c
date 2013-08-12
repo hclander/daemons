@@ -79,7 +79,7 @@ int frame_test_gps(unsigned char *buffer, size_t *len) {
 		if (src->cmd == FRAME_CMD_GPS_HUMAN
 				|| src->cmd == FRAME_CMD_GPS_EPOCH ) {
 
-			if ((src->len==0) || (src->len>=minLen)) {
+			if ((src->len==0) || (src->len+GPS_PREAMBLE_SIZE>=minLen)) {
 
 				result = true;
 

@@ -148,6 +148,11 @@ typedef struct {
 
 typedef frm_cmd_gps_t *frm_cmd_gps_p;
 
+
+#define GPS_PREAMBLE_SIZE  2	// frm_cmd_gps_t.cmd  and frm_cmd_gps_t.len
+#define GPS_FRAME_SIZE 	   sizeof(frm_cmd_gps_t)
+#define GPS_DATA_LEN	   (GPS_FRAME_SIZE - GPS_PREAMBLE_SIZE )
+
 //trama extendida    : 1 bit
 //long. trama    : 2 bits  (siempre 01)
 //hora        : 5 bits

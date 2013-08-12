@@ -136,8 +136,11 @@ int processGpsData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 
 			if ( mydb_insert_gps_subframe(dbw,rx_id,loc_id,&gps,gpsLen) )
 				mydb_update_transport_frame_status(dbr,rx_id,1);
+			else
+				mydb_update_transport_frame_status(dbr,rx_id,3);
 
 		} else {
+			mydb_update_transport_frame_status(dbr,rx_id,2);
 			LOG_E("No es una trama gps");
 		}
 
@@ -181,8 +184,8 @@ int runGpsMonitor() {
 
 	LOG_N("Inicializando monitor...");
 
-	dbr = db_create("localhost","Yii","jcmendez","locatel");
-	dbw = db_create("localhost","Yii","jcmendez","locatel");
+	dbr = db_create("localhost","Yii","juanky","demo");
+	dbw = db_create("localhost","Yii","juanky","demo");
 
 
 	db_connect(dbr);
