@@ -33,8 +33,10 @@ int main(int argc, char **argv) {
 
 	printf("Proj4   -> x=%lf,y=%lf\n",lat,lon);
 
-	lp.phi=-8.65 * 180 / M_PI;
-	lp.lam=42.22 * 180 / M_PI;
+	lp.phi=42.22 * 180 / M_PI;
+	lp.lam=-8.65 * 180 / M_PI;
+
+
 	//WGS84
 	p = proj_initstr("proj=merc ellps=clrk66 lat_ts=33");
 

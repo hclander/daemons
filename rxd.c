@@ -276,15 +276,14 @@ int runUDPserver() {
 
 		   lastTime = hashint_table_get(ht,ntohl(from.sin_addr.s_addr));
 
-		   if ( time(NULL)-(*lastTime)>ACK_TIMEOUT_SECS)
+		   if ( time(NULL)-(*lastTime)>ACK_TIMEOUT_SECS) {
 			   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
-
-		   *lastTime = time(NULL);  // Solo registro tiempo si la trama de transporte es bueana
-
+			   *lastTime = time(NULL);
+		   }
 
 	   }
 
-
+	   // *lastTime = time(NULL);
 	   //TODO: Guardar los datos a la BBDD
 
 	}
