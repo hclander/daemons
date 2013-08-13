@@ -184,8 +184,8 @@ int runGpsMonitor() {
 
 	LOG_N("Inicializando monitor...");
 
-	dbr = db_create("localhost","Yii","juanky","demo");
-	dbw = db_create("localhost","Yii","juanky","demo");
+	dbr = db_create("localhost","Yii","user","entrar");
+	dbw = db_create("localhost","Yii","user","entrar");
 
 
 	db_connect(dbr);
