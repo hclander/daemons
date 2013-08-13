@@ -21,6 +21,7 @@
 #include "mydb.h"
 
 #define UDP_DEFAULT_PORT 4490
+#define ACK_TIMEOUT_SECS 120   // Ack Timeout in seconds
 
 int udpPort =UDP_DEFAULT_PORT;
 int verboseLevel= 1;
@@ -227,7 +228,7 @@ int runUDPserver() {
 
 	   if ( !(lastTime=hashint_table_get(ht,ntohl(from.sin_addr.s_addr)))){
 		   lastTime = malloc(sizeof(time_t));
-		   *lastTime = time(NULL);
+		   *lastTime =  0;  //time(NULL);  // Para que la primera si se asienta..
 		   hashint_table_add(ht,ntohl(from.sin_addr.s_addr),lastTime);
 	   }
 
@@ -254,10 +255,10 @@ int runUDPserver() {
 			   // TODO implementar una pequeña lista para solo enviar
 			   // acks cada X tiempo
 
-			   lastTime = hashint_table_get(ht,ntohl(from.sin_addr.s_addr));
-
-			   if ( time(NULL)-(*lastTime)>120)
-				   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
+//			   lastTime = hashint_table_get(ht,ntohl(from.sin_addr.s_addr));
+//
+//			   if ( time(NULL)-(*lastTime)>120)
+//				   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
 		   }
 
 		   len = size;
@@ -265,15 +266,24 @@ int runUDPserver() {
 			   offset +=len;
 			   size   -=len;
 
-			   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
+			  // sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
 		   }
 
+
 		   // Otros test;
+
+		   // Mandamos un ack cada ACK_TIMEOUT_SECS segundos
+
+		   lastTime = hashint_table_get(ht,ntohl(from.sin_addr.s_addr));
+
+		   if ( time(NULL)-(*lastTime)>ACK_TIMEOUT_SECS)
+			   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
+
+		   *lastTime = time(NULL);  // Solo registro tiempo si la trama de transporte es bueana
 
 
 	   }
 
-	   *lastTime = time(NULL);
 
 	   //TODO: Guardar los datos a la BBDD
 
