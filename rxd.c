@@ -217,6 +217,11 @@ int runUDPserver() {
 
 	   n = recvfrom(sckt,buf,TRANS_MAX_BUFF_SIZE,0,(struct sockaddr *)&from,&fromLen);
 
+	   if (n<0) {
+		   LOG_F_E("Error receiving data: %s",strerror(errno));
+		   continue;
+	   }
+
 	   // De momento no señalizamos nada
 	   //sendto(sckt,MSG_OK,sizeof(MSG_OK),0,(struct sockaddr *)&from,fromLen);
 	   //
@@ -493,6 +498,8 @@ void doTestAndDie() {
 
 int main(int argc, char **argv) {
 
+	struct sigaction action;
+
 	int exitCode;
 
 	//doTestAndDie();
@@ -515,8 +522,17 @@ int main(int argc, char **argv) {
 
 	}
 
-	signal(SIGHUP,signalHandler); /* catch hangup signal */
-	signal(SIGTERM,signalHandler); /* catch kill signal */
+	memset(&action,0,sizeof(action));
+	//	sigemptyset(&action.sa_mask);
+	//	action.sa_flags = 0;
+	action.sa_handler =signalHandler;
+
+
+	sigaction(SIGHUP,&action,NULL);
+	sigaction(SIGTERM,&action,NULL);
+
+//	signal(SIGHUP,signalHandler); /* catch hangup signal */
+//	signal(SIGTERM,signalHandler); /* catch kill signal */
 
 	exitCode=runUDPserver();
 

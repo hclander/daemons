@@ -262,6 +262,7 @@ int runGpsMonitor() {
 }
 
 int main(int argc, char **argv) {
+	struct sigaction action;
 
 	parseArgs(argc,argv);
 	initLogs();
@@ -282,8 +283,15 @@ int main(int argc, char **argv) {
 
 	}
 
-	signal(SIGHUP,signalHandler); /* catch hangup signal */
-	signal(SIGTERM,signalHandler); /* catch kill signal */
+	memset(&action,0,sizeof(action));
+	action.sa_handler =signalHandler;
+
+
+	sigaction(SIGHUP,&action,NULL);
+	sigaction(SIGTERM,&action,NULL);
+
+//	signal(SIGHUP,signalHandler); /* catch hangup signal */
+//	signal(SIGTERM,signalHandler); /* catch kill signal */
 
 	return runGpsMonitor();
 
