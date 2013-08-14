@@ -12,13 +12,19 @@ RXD_SOURCES=rxd.c rxd.h  $(COMMON_SOURCES)
 GPSD_SOURCES=gpsd.c gpsd.h $(COMMON_SOURCES)
 TXS_SOURCES=txs.c $(COMMON_SOURCES)
 
-all: rxd gpsd txs
+TXS_PRJ_SOURCES=txs_prj.c frames.c frames.h lib/tools.c lib/tools.h 
+PRJ_LIBS=-lproject -lproj
+
+all: rxd gpsd txs txs_prj
 
 rxd: $(RXD_SOURCES)
 
 gpsd: $(GPSD_SOURCES)
 
 txs: $(TXS_SOURCES)
+
+txs_prj: $(TXS_PRJ_SOURCES)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ $(PRJ_LIBS)
 
 clean:
 	rm rxd gpsd txs

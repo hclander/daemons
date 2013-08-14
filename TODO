@@ -1,0 +1,5 @@
+Some few ideas to do:
+
+-GeoTurtle track maker. Turtle graphics essence applied to geographic projections.
+-Generic frame decoding using a bunch of specific functions. A manager process using an keyed list (cmd=key, function pointer) will process each frame.
+ 

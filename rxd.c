@@ -237,6 +237,12 @@ int runUDPserver() {
 
 		   transport_buf_p trans =(transport_buf_p) buf;
 
+		   // Estoy sospechando que tras un tiempo la conexion con la bbdd se cierra....
+		   if (!db_connect(db)) {
+			   LOG_E("Database conextion is closed. Trying to reconnect");
+			   db_connect(db);
+		   }
+
 		   // Ahora sólo guaradamos la carga util . El resto se guarda como campos de la tabla
 		   mydb_insert_transport_frame(db,ntohl(from.sin_addr.s_addr),ntohs(from.sin_port),ntohl(trans->header.sn),buf+TRANS_PREAMBLE_SIZE,n-TRANS_OVERLOAD);
 

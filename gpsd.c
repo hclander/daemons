@@ -208,6 +208,18 @@ int runGpsMonitor() {
 
    while(!terminate) {
 
+	   // Sospecho que tras un tiempo la conexion con la bbdd se cierra....
+	   if (!db_connect(dbr)) {
+		   LOG_E("Read database is closed. Trying to reconnect");
+		   db_connect(dbr);
+	   }
+
+	   // Sospecho que tras un tiempo la conexion con la bbdd se cierra....
+	   if (!db_connect(dbw)) {
+		   LOG_E("Write database is closed. Trying to reconnect");
+		   db_connect(dbw);
+	   }
+
 	   LOG_N("Checking for undecoded frames...");
 	   res = mydb_select_undecoded_transport_frames(dbr);
 
