@@ -6,7 +6,7 @@
 
 #define EARTH_OFFSET 268435456
 #define EARTH_RADIUS 85445659.4471
-#define DEG_RAD (3.14159 / 180)
+#define DEG_RAD (3.14159265358979323846 / 180)
 
 extern void rnd_init();
 extern int rnd(int max);
