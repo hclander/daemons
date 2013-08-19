@@ -77,8 +77,13 @@ typedef transport_buf_t *transport_buf_p;
 #define FRAME_CMD_PROBE		0xA0
 #define FRAME_CMD_SENSOR0	0xD0
 #define FRAME_CMD_SENSOR1   0xE0
+#define FRAME_CMD_SENSOR2   0xF0
 #define FRAME_CMD_PROBE_SENSOR_MASK 0xF0
 
+
+#define SENSOR_TYPE_0 0x0D
+#define SENSOR_TYPE_1 0x0E
+#define SENSOR_TYPE_2 0x0F
 
 // FRAME SERVER COMMANDS
 
@@ -290,6 +295,22 @@ typedef struct {
 typedef frm_cmd_cnx_t *frm_cmd_cnx_p;
 
 
+// Sensores
+
+typedef union {
+	u_int8_t cmd;
+	struct {
+		u_int8_t value:1;
+		u_int8_t num:3;
+		u_int8_t type:4;
+
+	} sensor;
+
+} PACKED frm_cmd_sensor_t;
+
+typedef frm_cmd_sensor_t *frm_cmd_sensor_p;
+
+
 typedef struct {
 	u_int8_t cmd;
 	u_int8_t len;
@@ -323,6 +344,9 @@ typedef frm_cmd_ack_t *frm_cmd_ack_p;
 #define GPS_DECODE_BEARING(bearing) (bearing*4)
 #define GPS_DECODE_OLD_BEARING(br2,br1,br0)  ( ((br2<<2) | (br1<<1) | br0)*45 )
 
+#define SEN_DECODE_CMD(cmd) ( (cmd) & FRAME_CMD_PROBE_SENSOR_MASK)
+#define SEN_DECODE_TYPE(cmd) ( (cmd)>>4 )
+
 #define GPS_ENCODE_LOCMIN(loc)  ( (loc - (int) loc) * MIN_TO_DEC * (loc<0?-1:1) )
 #define GPS_ENCODE_SPEED(kpmh) (kmph / KNOTS_TO_KMPH)
 #define GPS_ENCODE_BEARING(bearing) (bearing/4)
@@ -341,5 +365,11 @@ int frame_encode_ack(long serialNumber, int cmd, void *dst, size_t *len);
 int frame_test_cnx(void *src, size_t *len);
 int frame_encode_cnx(char *imei,int om, int sv, int cr, void *dst,size_t *len);
 int frame_encode_gps(int seq,int bearing,int knots, float lat, float lon, int fix, int hdop, time_t aTime, void *dst ,size_t *len);
+
+// DECODE MANAGER
+int  frame_decodermanager_init();
+int  frame_decodermanager_registerAll();
+void frame_decodermanager_finish();
+int  frame_decodermanager_decode(void *buf, size_t size, int *count);
 
 #endif //FRAMES_H_

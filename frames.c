@@ -4,7 +4,11 @@
 #include <netinet/in.h>
 #include <time.h>
 
+#include "lib/log.h"
 #include "frames.h"
+#include "framedecoder_list.h"
+
+framedecoder_list_t decodersList;
 
 
 int frame_xor_checksum(unsigned char *buffer, size_t offset, size_t len) {
@@ -249,6 +253,56 @@ int frame_test_cnx(void *src, size_t *len) {
 	return result;
 }
 
+int frame_decode_cnx(unsigned char *src, size_t srcLen, void *dst, size_t *dstLen) {
+	int result = false;
+
+	if (srcLen>=sizeof(frm_cmd_cnx_t)) {
+		if (frame_test_cnx(src,dstLen)) {
+
+			memcpy(dst,src,*dstLen);
+
+			result = true;
+
+		}
+	}
+
+	return result;
+}
+
+int frame_test_sensor(void *src, size_t *len) {
+	int result = false;
+
+	if (*len>=sizeof(frm_cmd_sensor_t)) {
+		frm_cmd_sensor_p sen = (frm_cmd_sensor_p) src;
+
+
+		switch(sen->sensor.type) {
+			case SENSOR_TYPE_0:
+			case SENSOR_TYPE_1:
+			case SENSOR_TYPE_2:
+				result = true;
+		}
+
+	}
+
+	*len = sizeof(frm_cmd_sensor_t);
+
+	return result;
+}
+
+int frame_decode_sensor(unsigned char *src, size_t srcLen, void *dst, size_t *dstLen) {
+	int result = false;
+
+	if (srcLen>=sizeof(frm_cmd_sensor_t)) {
+		if (frame_test_sensor(src,dstLen)){
+			memcpy(dst,src,*dstLen);
+			result = true;
+		}
+	}
+
+	return result;
+}
+
 int frame_encode_gps(int seq,int bearing,int knots, float lat, float lon, int fix, int hdop, time_t aTime, void *dst ,size_t *len) {
 	int result = false;
 
@@ -308,4 +362,86 @@ int frame_encode_cnx(char *imei,int om, int sv, int cr, void *dst,size_t *len) {
 
 // En ambos casos XX XX  = numero serie
 
+int frame_decodermanager_init() {
+
+	decodersList = fdl_create();
+	frame_decodermanager_registerAll();
+
+	return 0;
+}
+
+void frame_decodermanager_finish() {
+	fdl_destroy(&decodersList);
+}
+
+int frame_decodermanager_registerAll() {
+
+	fdl_register_func(decodersList,FRAME_CMD_GPS_EPOCH,frame_decode_gps);
+	fdl_register_func(decodersList,FRAME_CMD_GPS_HUMAN,frame_decode_gps);
+	fdl_register_func(decodersList,FRAME_CMD_GPS_OLD,frame_decode_gps_old);
+	fdl_register_func(decodersList,FRAME_CMD_CONECTION,frame_decode_cnx);
+
+	//TODO Simplificar el registro de comandos con valores en el propio comando
+
+	for (int i=0;i<0x10;i++) {
+		fdl_register_func(decodersList,FRAME_CMD_SENSOR0 & i,frame_decode_sensor);
+	}
+
+	for (int i=0;i<0x10;i++) {
+			fdl_register_func(decodersList,FRAME_CMD_SENSOR1 & i,frame_decode_sensor);
+	}
+
+	return fdl_get_count(decodersList);
+}
+
+int frame_decodermanager_decode(void *buf, size_t size, int *count) {
+	int result = false;
+	unsigned char *src;
+	int cmd;
+	size_t len;
+	size_t dstLen;
+	char dst[512];
+
+	if (buf) {
+		src = buf;
+		*count=0;
+		len = dstLen = 0;
+		framedecoder_func_t decode;
+
+		LOG_D("Begin decoding buffer.");
+
+		while (true) {
+
+			if (len>=size) {
+				result = true;
+				break;
+			}
+
+			cmd = *src;
+
+			LOG_F_D("Found CMD: 0x%02Xd",cmd);
+
+			decode=fdl_get_func(decodersList,cmd);
+
+			if(!decode) {
+				LOG_F_W("Decode function not found to cmd=0x%02X",cmd);
+				break;
+			}
+
+			dstLen=sizeof(dst);
+			if (decode(src,size-len,dst,&dstLen)) {
+				LOG_F_W("Decode function fails processing cmd=0x%02X",cmd);
+				break;
+			}
+
+			len+=dstLen;
+			src += dstLen;
+			(*count)++;
+		}
+
+		LOG_D("End decoding buffer.");
+
+	}
+	return result;
+}
 

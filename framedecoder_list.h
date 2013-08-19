@@ -7,30 +7,29 @@
 
 #ifndef FRAMEDECODER_LIST_H_
 #define FRAMEDECODER_LIST_H_
+#include <stdlib.h>
 
-typedef int(*framedecoder_function_t)(unsigned char *src, size_t srcLen, void *dst, size_t *dstLen);
+typedef int(*framedecoder_func_t)(unsigned char *src, size_t srcLen, void *dst, size_t *dstLen);
 
-// Lo defino así porque seguramente necesitaré añadir mas campos especificos a la estructura framedecoder_list_t
-// para su gestion u otras cosas...
-
-typedef struct {
-
-	 hashint_table_t decoders;
+#define T framedecoder_list_t
+typedef struct T *T;
 
 
-} framedecoder_list_t;
+T fdl_create();
 
-typedef framedecoder_list_t *framedecoder_list_p;
+void fdl_destroy(T *fdl);
 
-framedecoder_list_t *fdl_create();
+int fdl_register_func(T fdl,int cmd,framedecoder_func_t function);
 
-void fdl_destroy(framedecoder_list_t *fdl);
+int fdl_unregister_func(T fdl,int cmd);
+
+framedecoder_func_t fdl_get_func(T fdl,int cmd);
+
+int fdl_get_count(T fdl);
+
+void *fld_get_list(T fdl);
 
 
-int fdl_register_function(framedecoder_list_t *fdl,int cmd,framedecoder_function_t function);
-
-int fdl_unregister_function(framedecoder_list_t *fdl,int cmd);
-
-framedecoder_function_t fdl_get_function(framedecoder_list_t *fdl,int cmd);
+#undef T
 
 #endif /* FRAMEDECODER_LIST_H_ */

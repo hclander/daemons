@@ -12,32 +12,19 @@
 
 #define HASHINT_DEFAULT_SIZE  10
 
-typedef struct {
-	long key;
-	void *data;
+#define T hashint_table_t
 
-} hashint_inner_item_t;
+typedef struct T *T;
 
-typedef struct {
-	hashint_inner_item_t *items;
-	int size;
-	int len;
+T hashint_table_create(int size);
+void hashint_table_destroy( T *ht, int freeItems);
+int hashint_table_add(T ht,long key, void *data);
+int hashint_table_delete(T ht, long key, int freeItem);
+void *hashint_table_get(T ht,long key);
+int hashint_table_getSize(T ht);
+int hashint_table_getLen(T ht);
+int hashint_table_indexOf(T ht, long key);
 
-
-} hashint_table_t;
-
-
-
-typedef hashint_table_t *hashint_table_p;
-
-hashint_table_t * hashint_table_create(int size);
-void hashint_table_destroy( hashint_table_t *ht, int freeItems);
-int hashint_table_add(hashint_table_t *ht,long key, void *data);
-int hashint_table_delete(hashint_table_t *ht, long key, int freeItem);
-void *hashint_table_get(hashint_table_t *ht,long key);
-int hashint_table_getSize(hashint_table_t *ht);
-int hashint_table_getLen(hashint_table_t *ht);
-int hashint_table_indexOf(hashint_table_t *ht, long key);
-
+#undef T
 
 #endif /* HASHINTTABLE_H_ */

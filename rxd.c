@@ -161,7 +161,7 @@ int runUDPserver() {
 	socklen_t fromLen;
 	struct sockaddr_in server, from;
 
-	hashint_table_t *ht;
+	hashint_table_t ht;
 	time_t *lastTime;
 
 	char buf[TRANS_MAX_BUFF_SIZE];
@@ -300,7 +300,7 @@ int runUDPserver() {
 	}
 
 	close(sckt);
-	hashint_table_destroy(ht,true);
+	hashint_table_destroy(&ht,true);
 	db_destroy(db);
 
 	return EXIT_SUCCESS;

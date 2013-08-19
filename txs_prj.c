@@ -340,11 +340,56 @@ void doTestAndDie() {
 
 }
 
+void doSpiral() {
+
+
+	PROJ *p;
+	PROJ_XY xy,center,old;
+	PROJ_LP lp;
+
+	double radio,ang, delta,A,B,Eps;
+
+	lp.phi=ORIG_LAT * D_TO_R;
+	lp.lam=ORIG_LON * D_TO_R;
+
+
+
+		//WGS84
+	p = proj_initstr("proj=merc ellps=WGS84");
+
+	center = proj_fwd(lp,p);
+
+	//Spiral euclieds  r = a+b*Angulo
+
+	delta = 1 * D_TO_R;
+	ang = 0;
+	A=1; B=2;
+	Eps=0.0000001;
+
+	while (true)  {
+
+		radio = A+B*ang;
+
+		xy.x = center.x + round( radio * cos(ang));
+		xy.y = center.y + round( radio * sin(ang));
+
+		lp = proj_inv(xy,p);
+
+		if ( ( islessgreater(xy.x+Eps,old.x) && islessgreater(xy.y+Eps,old.y)))
+				printf("Project -> lat=%lf,lon=%lf\n",lp.phi*R_TO_D,lp.lam*R_TO_D);
+
+		old=xy;
+		ang+=delta;
+	}
+
+}
+
 
 int main(int argc, char **argv) {
 
 	int exitCode;
 
+	doSpiral();
 	//doTestAndDie();
 
 	parseArgs(argc,argv);

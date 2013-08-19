@@ -107,14 +107,16 @@ void signalHandler(int signal) {
 }
 
 
-int processGpsData(RES_T *res, DB_T *dbw,DB_T *dbr) {
+int processData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 
 	ROW_T *row;
 	int rx_id,loc_id;
 	frm_cmd_gps_t gps;
 	unsigned char *buf;
 	size_t len,gpsLen;
-
+	int count;
+	int status=2;
+	int ok;
 
 	if (res_isClosed(res)) {
 		LOG_E("Recordset is closed");
@@ -132,17 +134,44 @@ int processGpsData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 
 		buf = row_getFieldValue(row, row_getFieldIndex(row,"data"));
 
-		if ( frame_decode_gps(buf,len,&gps,&gpsLen) ) {
 
-			if ( mydb_insert_gps_subframe(dbw,rx_id,loc_id,&gps,gpsLen) )
-				mydb_update_transport_frame_status(dbr,rx_id,1);
-			else
-				mydb_update_transport_frame_status(dbr,rx_id,3);
+		ok=frame_decodermanager_decode(buf,len,&count);
+
+		if (count>0) {
+
+			if (ok)
+				status = 1;
+
+			//FIXME Cambiar esto que solo esta para guardar tramas GPS y tiene que ser generico
+
+			if ( frame_decode_gps(buf,len,&gps,&gpsLen) ) {
+
+				if ( !mydb_insert_gps_subframe(dbw,rx_id,loc_id,&gps,gpsLen) ) {
+					status = 3;
+				}
+			}
+
 
 		} else {
-			mydb_update_transport_frame_status(dbr,rx_id,2);
-			LOG_E("No es una trama gps");
+			status = -1;
+			LOG_E("No se pudo decodificar nada");
 		}
+
+
+
+//		if ( frame_decode_gps(buf,len,&gps,&gpsLen) ) {
+//
+//			if ( mydb_insert_gps_subframe(dbw,rx_id,loc_id,&gps,gpsLen) )
+//				mydb_update_transport_frame_status(dbr,rx_id,1);
+//			else
+//				mydb_update_transport_frame_status(dbr,rx_id,3);
+//
+//		} else {
+//			mydb_update_transport_frame_status(dbr,rx_id,2);
+//			LOG_E("No es una trama gps");
+//		}
+
+		mydb_update_transport_frame_status(dbr,rx_id,status);
 
 	}
 
@@ -174,7 +203,7 @@ int processGpsData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 	//	}
 }
 
-int runGpsMonitor() {
+int runMonitor() {
 
 	//TODO: Necesitamos doble conexions  una para la lectura y otra para la escritura
 	DB_T *dbr;
@@ -205,6 +234,7 @@ int runGpsMonitor() {
 		return EXIT_FAILURE;
 	}
 
+	frame_decodermanager_init();
 
    while(!terminate) {
 
@@ -225,7 +255,7 @@ int runGpsMonitor() {
 
 	   if (res_getRowCount(res)>0) {
 		   LOG_F_N("Processing %d new frames..",res_getRowCount(res));
-		   processGpsData(res,dbw,dbr);
+		   processData(res,dbw,dbr);
 	   }
 
 	   res_destroy(res);
@@ -257,13 +287,14 @@ int runGpsMonitor() {
 	db_destroy(dbr);
 	db_destroy(dbw);
    //mysql_close(conRead);
+	frame_decodermanager_finish();
 
 	return EXIT_SUCCESS;
 }
 
 int main(int argc, char **argv) {
 	struct sigaction action;
-
+	int exitCode;
 	parseArgs(argc,argv);
 	initLogs();
 
@@ -293,7 +324,11 @@ int main(int argc, char **argv) {
 //	signal(SIGHUP,signalHandler); /* catch hangup signal */
 //	signal(SIGTERM,signalHandler); /* catch kill signal */
 
-	return runGpsMonitor();
+
+
+	exitCode = runMonitor();
+
+	return exitCode;
 
 
 	//return EXIT_SUCCESS;
