@@ -359,11 +359,11 @@ void doSpiral() {
 
 	center = proj_fwd(lp,p);
 
-	//Spiral euclieds  r = a+b*Angulo
+	//Spiral euclides  r = a+b*Angulo
 
-	delta = 1 * D_TO_R;
+	delta = 5 * D_TO_R;
 	ang = 0;
-	A=1; B=2;
+	A=0; B=10;
 	Eps=0.0000001;
 
 	while (true)  {
@@ -376,7 +376,7 @@ void doSpiral() {
 		lp = proj_inv(xy,p);
 
 		if ( ( islessgreater(xy.x+Eps,old.x) && islessgreater(xy.y+Eps,old.y)))
-				printf("Project -> lat=%lf,lon=%lf\n",lp.phi*R_TO_D,lp.lam*R_TO_D);
+				printf("%lf\t%lf\n",lp.phi*R_TO_D,lp.lam*R_TO_D);
 
 		old=xy;
 		ang+=delta;
