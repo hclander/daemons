@@ -34,9 +34,9 @@ struct bytebuffer_t {
 #define T bytebuffer_t
 
 
-T    bb_create(){
+T  bb_create(){
 
-	bytebuffer_t bb;
+	T bb;
 
 	NEW0(bb);
 
@@ -75,7 +75,7 @@ int  bb_getLimit(T bb){
 	return bb->limit;
 }
 
-T	 bb_setLimit(T bb, int limit) {
+T  bb_setLimit(T bb, int limit) {
 
 	if (limit>bb->capacity)
 		return NULL;
@@ -91,7 +91,7 @@ T	 bb_setLimit(T bb, int limit) {
 	return bb;
 }
 
-T    bb_clear(T bb){
+T bb_clear(T bb){
 
 	bb->position =0;
 	bb->mark = UNSET_MARK;
@@ -99,7 +99,7 @@ T    bb_clear(T bb){
 	return bb;
 }
 
-T    bb_flip(T bb){
+T bb_flip(T bb){
 
 	bb->limit = bb->position;
 	bb->position = 0;
@@ -127,7 +127,7 @@ int  bb_getPosition(T bb) {
 		return bb->position;
 }
 
-T	 bb_setPosition(T bb, int newPosition){
+T  bb_setPosition(T bb, int newPosition){
 
 	if (newPosition>bb->limit)
 		return NULL;
@@ -236,7 +236,7 @@ int  bb_equals(T bb, T bbDst) {
 
 T	 bb_duplicate(T bb) {
 
-	bytebuffer_t nn;
+	T nn;
 
 	NEW0(nn);
 
@@ -255,7 +255,7 @@ T	 bb_duplicate(T bb) {
 }
 
 T	bb_slice(T bb) {
-	bytebuffer_t slice;
+	T slice;
 
 	NEW0(slice);
 
@@ -295,7 +295,7 @@ T   bb_getToBuff(T bb, void *dst,int dstOffset, int dstCount) {
 
 int	 bb_getInt8(T bb) {
 
-	if ((bb->offset+bb->position+sizeof(uint8_t))>bb->limit)
+	if ((bb->position+sizeof(uint8_t))>bb->limit)
 		return -1;
 
 	return bb->buf[bb->offset+bb->position++];
@@ -306,7 +306,7 @@ int  bb_getInt16(T bb) {
 
 	int value;
 
-	if (bb->offset+bb->position+sizeof(uint16_t)>bb->limit)
+	if (bb->position+sizeof(uint16_t)>bb->limit)
 		return -1;
 
 
@@ -323,7 +323,7 @@ int  bb_getInt32(T bb) {
 
 	int value;
 
-	if (bb->offset+bb->position+sizeof(uint32_t)>bb->limit)
+	if (bb->position+sizeof(uint32_t)>bb->limit)
 			return -1;
 
 	value =*((uint32_t *)(bb->buf+bb->offset+bb->position));
@@ -336,7 +336,7 @@ int  bb_getInt32(T bb) {
 long bb_getInt64(T bb) {
 	long value;
 
-	if (bb->offset+bb->position+sizeof(uint64_t)>bb->limit)
+	if (bb->position+sizeof(uint64_t)>bb->limit)
 				return -1;
 
 		value =*((uint64_t *)(bb->buf+bb->offset+bb->position));
@@ -349,7 +349,7 @@ long bb_getInt64(T bb) {
 
 int	 bb_getInt8Idx(T bb, int idx) {
 
-	if ((bb->offset+idx+sizeof(uint8_t))>bb->limit)
+	if ( (idx<0) || (idx+sizeof(uint8_t)>bb->limit))
 			return -1;
 
 	return bb->buf[bb->offset+idx];
@@ -359,7 +359,7 @@ int	 bb_getInt8Idx(T bb, int idx) {
 int  bb_getInt16Idx(T bb, int idx){
 	int value;
 
-	if (bb->offset+idx+sizeof(uint16_t)>bb->limit)
+	if ((idx<0) || idx+sizeof(uint16_t)>bb->limit)
 		return -1;
 
 
@@ -372,7 +372,7 @@ int  bb_getInt16Idx(T bb, int idx){
 int  bb_getInt32Idx(T bb, int idx) {
 	int value;
 
-	if (bb->offset+idx+sizeof(uint32_t)>bb->limit)
+	if ((idx<0) || idx+sizeof(uint32_t)>bb->limit)
 			return -1;
 
 	value =*((uint32_t *)(bb->buf+bb->offset+idx));
@@ -384,7 +384,7 @@ int  bb_getInt32Idx(T bb, int idx) {
 long bb_getInt64Idx(T bb, int idx) {
 	long value;
 
-	if (bb->offset+idx+sizeof(uint64_t)>bb->limit)
+	if ((idx<0) || idx+sizeof(uint64_t)>bb->limit)
 				return -1;
 
 	value =*((uint64_t *)(bb->buf+bb->offset+idx));
@@ -398,7 +398,7 @@ long bb_getInt64Idx(T bb, int idx) {
 float  bb_getFloat(T bb) {
 	int value;
 
-	if (bb->offset+bb->position+sizeof(float)>bb->limit)
+	if (bb->position+sizeof(float)>bb->limit)
 			return -1;
 
 	value =*((uint32_t *)(bb->buf+bb->offset+bb->position));
@@ -415,7 +415,7 @@ double bb_getFloatByIdx(T bb, int idx) {
 
 	int value;
 
-	if (bb->offset+idx+sizeof(float)>bb->limit)
+	if ((idx<0) || idx+sizeof(float)>bb->limit)
 			return -1;
 
 	value =*((uint32_t *)(bb->buf+bb->offset+idx));
@@ -432,7 +432,7 @@ double bb_getFloatByIdx(T bb, int idx) {
 double bb_getDouble(T bb) {
 	long value;
 
-	if (bb->offset+bb->position+sizeof(uint64_t)>bb->limit)
+	if (bb->position+sizeof(uint64_t)>bb->limit)
 			return -1;
 
 	value =*((uint64_t *)(bb->buf+bb->offset+bb->position));
@@ -448,7 +448,7 @@ double bb_getDouble(T bb) {
 double bb_getDoubleByIdx(T bb, int idx) {
 	long value;
 
-	if (bb->offset+idx+sizeof(uint64_t)>bb->limit)
+	if ((idx<0) || idx+sizeof(uint64_t)>bb->limit)
 			return -1;
 
 	value =*((uint64_t *)(bb->buf+bb->offset+idx));
@@ -492,7 +492,7 @@ T	bb_putByteBuffer(T bb, T bbSrc) {   // Puts the remains bytes in bbSrc  into b
 
 
 T	bb_putInt8(T bb, int value) {
-	if ((bb->offset+bb->position+sizeof(uint8_t))>bb->limit)
+	if ((bb->position+sizeof(uint8_t))>bb->limit)
 			return NULL;
 
 	bb->buf[bb->offset+bb->position++] = value;
@@ -504,7 +504,7 @@ T	bb_putInt8(T bb, int value) {
 T	bb_putInt16(T bb, int value) {
 
 
-	if (bb->offset+bb->position+sizeof(uint16_t)>bb->limit)
+	if (bb->position+sizeof(uint16_t)>bb->limit)
 		return NULL;
 
 	*((uint16_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be16toh(value) : le16toh(value);
@@ -517,7 +517,7 @@ T	bb_putInt16(T bb, int value) {
 
 T	bb_putInt32(T bb, int value) {
 
-	if (bb->offset+bb->position+sizeof(uint32_t)>bb->limit)
+	if (bb->position+sizeof(uint32_t)>bb->limit)
 			return NULL;
 
 	*((uint32_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
@@ -531,7 +531,7 @@ T	bb_putInt32(T bb, int value) {
 
 T	bb_putInt64(T bb, long value) {
 
-	if (bb->offset+bb->position+sizeof(uint64_t)>bb->limit)
+	if (bb->position+sizeof(uint64_t)>bb->limit)
 			return NULL;
 
 	*((uint64_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
@@ -544,7 +544,7 @@ T	bb_putInt64(T bb, long value) {
 
 T	bb_putInt8Idx(T bb, int idx, int value) {
 
-	if ((bb->offset+idx+sizeof(uint8_t))>bb->limit)
+	if ((idx<0) || (idx+sizeof(uint8_t))>bb->limit)
 		return NULL;
 
 	bb->buf[bb->offset+idx] = value;
@@ -556,7 +556,7 @@ T	bb_putInt8Idx(T bb, int idx, int value) {
 T	bb_putInt16Idx(T bb, int idx, int value) {
 
 
-	if (bb->offset+idx+sizeof(uint16_t)>bb->limit)
+	if ((idx>0) || idx+sizeof(uint16_t)>bb->limit)
 		return NULL;
 
 
@@ -567,7 +567,7 @@ T	bb_putInt16Idx(T bb, int idx, int value) {
 
 T	bb_putInt32Idx(T bb, int idx, int value) {
 
-	if (bb->offset+idx+sizeof(uint32_t)>bb->limit)
+	if ((idx<0) || idx+sizeof(uint32_t)>bb->limit)
 		return NULL;
 
 
@@ -578,7 +578,7 @@ T	bb_putInt32Idx(T bb, int idx, int value) {
 
 T	bb_putInt64Idx(T bb, int idx, long value) {
 
-	if (bb->offset+idx+sizeof(uint64_t)>bb->limit)
+	if ((idx<0) || idx+sizeof(uint64_t)>bb->limit)
 		return NULL;
 
 
@@ -588,8 +588,11 @@ T	bb_putInt64Idx(T bb, int idx, long value) {
 }
 
 T	bb_putDouble(T bb, double value) {
-	if (bb->offset+bb->position+sizeof(float)>bb->limit)
+
+	if (bb->position+sizeof(float)>bb->limit)
 				return NULL;
+
+	// Esto se basa en que sizeof(double) == sizeof(uint64_t)
 
 	*((uint64_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be64toh(*((uint64_t *)&value)) : le64toh(*((uint64_t *)&value));
 
@@ -601,7 +604,7 @@ T	bb_putDouble(T bb, double value) {
 
 T	bb_putDoubleIdx(T bb, int idx, double value) {
 
-	if (bb->offset+idx+sizeof(float)>bb->limit)
+	if ((idx<0) || idx+sizeof(float)>bb->limit)
 					return NULL;
 
 	*((uint64_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be64toh(*((uint64_t *)&value)) : le64toh(*((uint64_t *)&value));
@@ -612,9 +615,10 @@ T	bb_putDoubleIdx(T bb, int idx, double value) {
 
 T	bb_putFloat(T bb, float value) {
 
-	if (bb->offset+bb->position+sizeof(float)>bb->limit)
+	if (bb->position+sizeof(float)>bb->limit)
 			return NULL;
 
+	// Esto se basa en que sizeof(float) == sizeof(uint32_t)
 	*((uint32_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be32toh(*((uint32_t *)&value)) : le32toh(*((uint32_t *)&value));
 
 	bb->position += sizeof(float);
@@ -625,7 +629,7 @@ T	bb_putFloat(T bb, float value) {
 
 T	bb_putFloatIdx(T bb, int idx, float value) {
 
-	if (bb->offset+idx+sizeof(float)>bb->limit)
+	if ((idx<0) || idx+sizeof(float)>bb->limit)
 			return NULL;
 
 	*((uint32_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be32toh(*((uint32_t *)&value)) : le32toh(*((uint32_t *)&value));
