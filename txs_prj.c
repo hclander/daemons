@@ -389,7 +389,7 @@ int main(int argc, char **argv) {
 
 	int exitCode;
 
-	doSpiral();
+	//doSpiral();
 	//doTestAndDie();
 
 	parseArgs(argc,argv);

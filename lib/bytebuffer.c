@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <endian.h>
 
 #include "mem.h"
@@ -58,7 +59,7 @@ T    bb_init(T bb, int capacity,  int ownBuffer, int offset, void *buf) {
 
 	bb->limit = bb->capacity = capacity;
 	bb->position = 0;
-	bb->mark = UNSET_MARK;
+	bb->mark = BB_UNSET_MARK;
 	bb->ownBuffer = ownBuffer;
 	bb->offset = offset;
 	bb->buf = buf;
@@ -85,7 +86,7 @@ T  bb_setLimit(T bb, int limit) {
 	if (bb->position>limit)
 		bb->position=limit;
 
-	if ( (bb->mark != UNSET_MARK) && (bb->mark > limit))
+	if ( (bb->mark != BB_UNSET_MARK) && (bb->mark > limit))
 		bb->mark = limit;
 
 	return bb;
@@ -94,7 +95,7 @@ T  bb_setLimit(T bb, int limit) {
 T bb_clear(T bb){
 
 	bb->position =0;
-	bb->mark = UNSET_MARK;
+	bb->mark = BB_UNSET_MARK;
 	bb->limit = bb->capacity;
 	return bb;
 }
@@ -103,7 +104,7 @@ T bb_flip(T bb){
 
 	bb->limit = bb->position;
 	bb->position = 0;
-	bb->mark = UNSET_MARK;
+	bb->mark = BB_UNSET_MARK;
 	return bb;
 
 }
@@ -149,7 +150,7 @@ T	 bb_mark(T bb) {
 }
 
 T	 bb_reset(T bb) {
-	if (bb->mark == UNSET_MARK)
+	if (bb->mark == BB_UNSET_MARK)
 		return NULL;
 
 	bb->position = bb->mark;
@@ -160,7 +161,7 @@ T	 bb_reset(T bb) {
 
 T	 bb_rewind	(T bb) {
 	bb->position = 0;
-	bb->mark = UNSET_MARK;
+	bb->mark = BB_UNSET_MARK;
 	return bb;
 }
 
@@ -205,33 +206,46 @@ T	 bb_compact(T bb) {
 	 memmove(bb->buf+bb->offset,bb->buf+(bb->offset+bb->position),bb_remaining(bb));
 	 bb->position = bb->limit -bb->position;
 	 bb->limit = bb->capacity;
-	 bb->mark = UNSET_MARK;
+	 bb->mark = BB_UNSET_MARK;
 	 return bb;
 }
 
+/*
+ *  Devuelve <0 ,0, >0   si  bb<bbDst, bb == bbDst, bb >bbDst
+ */
+
 int  bb_compare(T bb, T bbDst) {
 
-	// TODO implement this
-	return 0;
+	int rem= bb_remaining(bb);
+	int remDst = bb_remaining(bbDst);
+
+	int count = rem<remDst ? rem:remDst;
+
+	if (rem != remDst)  // Si los remains ya son distintos ya ni comparamso
+		return rem -remDst;
+
+	return memcmp(bb->buf+bb->offset+bb->position,bbDst->buf+bbDst->offset+bb->position,count);
+
 }
 
 int  bb_equals(T bb, T bbDst) {
 
-	int result = false;
+	return !bb_compare(bb,bbDst) ? true : false;
 
-	if (bb_remaining(bb) == bb_remaining(bbDst)) {
+//	int result = false;
 
-		int p = bb->position;
-		int pDst = bbDst->position;
-
-		result = true;
-
-		while (result && p <bb->limit)
-			result = bb_getByIdx(p++) == bb_getByIdx(pDst++);
-
-	}
-
-	return result;
+//	if (bb_remaining(bb) == bb_remaining(bbDst)) {
+//
+//		int p = bb->position;
+//		int pDst = bbDst->position;
+//
+//		result = true;
+//
+//		while (result && p <bb->limit)
+//			result = bb_getByIdx(bb,p++) == bb_getByIdx(bbDst,pDst++);
+//
+//	}
+//	return result;
 }
 
 T	 bb_duplicate(T bb) {
@@ -275,7 +289,7 @@ int  bb_get(T bb) {
 }
 
 int  bb_getByIdx(T bb, int idx) {
-	 return bb_getByIdx(bb);
+	 return bb_getInt8Idx(bb,idx);
 }
 
 T   bb_getToBuff(T bb, void *dst,int dstOffset, int dstCount) {
@@ -314,7 +328,7 @@ int  bb_getInt16(T bb) {
 
 	bb->position += sizeof(uint16_t);
 
-	return (bb->order == BIG_ENDIAN) ? be16toh(value) : le16toh(value);
+	return (bb->order == BB_ORDER_BIG_ENDIAN) ? be16toh(value) : le16toh(value);
 
 
 }
@@ -330,7 +344,7 @@ int  bb_getInt32(T bb) {
 
 	bb->position += sizeof(uint32_t);
 
-	return (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
+	return (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(value) : le32toh(value);
 }
 
 long bb_getInt64(T bb) {
@@ -343,7 +357,7 @@ long bb_getInt64(T bb) {
 
 		bb->position += sizeof(uint64_t);
 
-		return (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
+		return (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(value) : le64toh(value);
 
 }
 
@@ -366,7 +380,7 @@ int  bb_getInt16Idx(T bb, int idx){
 	value =*((uint16_t *)(bb->buf+bb->offset+idx));
 
 
-	return (bb->order == BIG_ENDIAN) ? be16toh(value) : le16toh(value);
+	return (bb->order == BB_ORDER_BIG_ENDIAN) ? be16toh(value) : le16toh(value);
 }
 
 int  bb_getInt32Idx(T bb, int idx) {
@@ -378,7 +392,7 @@ int  bb_getInt32Idx(T bb, int idx) {
 	value =*((uint32_t *)(bb->buf+bb->offset+idx));
 
 
-	return (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
+	return (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(value) : le32toh(value);
 }
 
 long bb_getInt64Idx(T bb, int idx) {
@@ -390,7 +404,7 @@ long bb_getInt64Idx(T bb, int idx) {
 	value =*((uint64_t *)(bb->buf+bb->offset+idx));
 
 
-	return (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
+	return (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(value) : le64toh(value);
 }
 
 //wchar_t bb_getWChar();
@@ -405,7 +419,7 @@ float  bb_getFloat(T bb) {
 
 	bb->position += sizeof(float);
 
-	value = (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
+	value = (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(value) : le32toh(value);
 
 	return *((float *)&value);
 
@@ -421,7 +435,7 @@ double bb_getFloatByIdx(T bb, int idx) {
 	value =*((uint32_t *)(bb->buf+bb->offset+idx));
 
 
-	value = (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
+	value = (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(value) : le32toh(value);
 
 	return *((float *)&value);
 
@@ -439,7 +453,7 @@ double bb_getDouble(T bb) {
 
 	bb->position += sizeof(uint64_t);
 
-	value = (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
+	value = (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(value) : le64toh(value);
 
 	return  *((double *)&value);
 
@@ -454,7 +468,7 @@ double bb_getDoubleByIdx(T bb, int idx) {
 	value =*((uint64_t *)(bb->buf+bb->offset+idx));
 
 
-	value = (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
+	value = (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(value) : le64toh(value);
 
 	return  *((double *)&value);
 
@@ -507,7 +521,7 @@ T	bb_putInt16(T bb, int value) {
 	if (bb->position+sizeof(uint16_t)>bb->limit)
 		return NULL;
 
-	*((uint16_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be16toh(value) : le16toh(value);
+	*((uint16_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be16toh(value) : le16toh(value);
 
 	bb->position += sizeof(uint16_t);
 
@@ -520,7 +534,7 @@ T	bb_putInt32(T bb, int value) {
 	if (bb->position+sizeof(uint32_t)>bb->limit)
 			return NULL;
 
-	*((uint32_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
+	*((uint32_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(value) : le32toh(value);
 
 	bb->position += sizeof(uint32_t);
 
@@ -534,7 +548,7 @@ T	bb_putInt64(T bb, long value) {
 	if (bb->position+sizeof(uint64_t)>bb->limit)
 			return NULL;
 
-	*((uint64_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
+	*((uint64_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(value) : le64toh(value);
 
 	bb->position += sizeof(uint64_t);
 
@@ -560,7 +574,7 @@ T	bb_putInt16Idx(T bb, int idx, int value) {
 		return NULL;
 
 
-	*((uint16_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be16toh(value) : le16toh(value);
+	*((uint16_t *)(bb->buf+bb->offset+idx)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be16toh(value) : le16toh(value);
 
 	return bb;
 }
@@ -571,7 +585,7 @@ T	bb_putInt32Idx(T bb, int idx, int value) {
 		return NULL;
 
 
-	*((uint32_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be32toh(value) : le32toh(value);
+	*((uint32_t *)(bb->buf+bb->offset+idx)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(value) : le32toh(value);
 
 	return bb;
 }
@@ -582,7 +596,7 @@ T	bb_putInt64Idx(T bb, int idx, long value) {
 		return NULL;
 
 
-	*((uint64_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be64toh(value) : le64toh(value);
+	*((uint64_t *)(bb->buf+bb->offset+idx)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(value) : le64toh(value);
 
 	return bb;
 }
@@ -594,7 +608,7 @@ T	bb_putDouble(T bb, double value) {
 
 	// Esto se basa en que sizeof(double) == sizeof(uint64_t)
 
-	*((uint64_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be64toh(*((uint64_t *)&value)) : le64toh(*((uint64_t *)&value));
+	*((uint64_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(*((uint64_t *)&value)) : le64toh(*((uint64_t *)&value));
 
 	bb->position += sizeof(double);
 
@@ -607,7 +621,7 @@ T	bb_putDoubleIdx(T bb, int idx, double value) {
 	if ((idx<0) || idx+sizeof(float)>bb->limit)
 					return NULL;
 
-	*((uint64_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be64toh(*((uint64_t *)&value)) : le64toh(*((uint64_t *)&value));
+	*((uint64_t *)(bb->buf+bb->offset+idx)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be64toh(*((uint64_t *)&value)) : le64toh(*((uint64_t *)&value));
 
 
 	return bb;
@@ -619,7 +633,7 @@ T	bb_putFloat(T bb, float value) {
 			return NULL;
 
 	// Esto se basa en que sizeof(float) == sizeof(uint32_t)
-	*((uint32_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BIG_ENDIAN) ? be32toh(*((uint32_t *)&value)) : le32toh(*((uint32_t *)&value));
+	*((uint32_t *)(bb->buf+bb->offset+bb->position)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(*((uint32_t *)&value)) : le32toh(*((uint32_t *)&value));
 
 	bb->position += sizeof(float);
 
@@ -632,7 +646,7 @@ T	bb_putFloatIdx(T bb, int idx, float value) {
 	if ((idx<0) || idx+sizeof(float)>bb->limit)
 			return NULL;
 
-	*((uint32_t *)(bb->buf+bb->offset+idx)) = (bb->order == BIG_ENDIAN) ? be32toh(*((uint32_t *)&value)) : le32toh(*((uint32_t *)&value));
+	*((uint32_t *)(bb->buf+bb->offset+idx)) = (bb->order == BB_ORDER_BIG_ENDIAN) ? be32toh(*((uint32_t *)&value)) : le32toh(*((uint32_t *)&value));
 
 	return bb;
 

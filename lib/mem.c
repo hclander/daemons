@@ -30,11 +30,8 @@ void *mem_calloc(size_t count, size_t size) {
 }
 
 void *mem_realloc(void *ptr, size_t size) {
-	if (ptr) {
 
-		ptr =realloc(ptr,size);
-
-	}
+	ptr =realloc(ptr,size);
 
 	return ptr;
 }

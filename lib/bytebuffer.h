@@ -12,9 +12,9 @@
 
 typedef struct T *T;
 
-#define UNSET_MARK -1
-#define BIG_ENDIAN    0
-#define LITTLE_ENDIAN 1
+#define BB_UNSET_MARK -1
+#define BB_ORDER_BIG_ENDIAN    0
+#define BB_ORDER_LITTLE_ENDIAN 1
 
 T    bb_create();
 
@@ -103,10 +103,10 @@ T	bb_putInt16Idx(T bb, int idx, int value);
 T	bb_putInt32Idx(T bb, int idx, int value);
 T	bb_putInt64Idx(T bb, int idx, long value);
 
-T	bb_putDouble(double value);
-T	bb_putDoubleIdx(int idx, double value);
-T	bb_putFloat(float value);
-T	bb_putFloatIdx(int idx, float value);
+T	bb_putDouble(T bb, double value);
+T	bb_putDoubleIdx(T bb, int idx, double value);
+T	bb_putFloat(T bb, float value);
+T	bb_putFloatIdx(T bb, int idx, float value);
 
 
 #undef T

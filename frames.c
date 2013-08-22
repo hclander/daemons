@@ -384,11 +384,11 @@ int frame_decodermanager_registerAll() {
 	//TODO Simplificar el registro de comandos con valores en el propio comando
 
 	for (int i=0;i<0x10;i++) {
-		fdl_register_func(decodersList,FRAME_CMD_SENSOR0 & i,frame_decode_sensor);
+		fdl_register_func(decodersList,FRAME_CMD_SENSOR0 | i,frame_decode_sensor);
 	}
 
 	for (int i=0;i<0x10;i++) {
-			fdl_register_func(decodersList,FRAME_CMD_SENSOR1 & i,frame_decode_sensor);
+			fdl_register_func(decodersList,FRAME_CMD_SENSOR1 | i,frame_decode_sensor);
 	}
 
 	return fdl_get_count(decodersList);
@@ -429,7 +429,7 @@ int frame_decodermanager_decode(void *buf, size_t size, int *count) {
 			}
 
 			dstLen=sizeof(dst);
-			if (decode(src,size-len,dst,&dstLen)) {
+			if (!decode(src,size-len,dst,&dstLen)) {
 				LOG_F_W("Decode function fails processing cmd=0x%02X",cmd);
 				break;
 			}
