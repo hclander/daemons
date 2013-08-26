@@ -32,7 +32,7 @@ typedef union {
 		u_int8_t undefined:2;
 		u_int8_t crc:1;
 		u_int8_t lendian:1;
-	} flags ;
+	}  ;
 
 	u_int8_t start;
 
@@ -49,7 +49,7 @@ typedef start_header_t *start_header_p;
 
 typedef struct {
 	start_header_t header;
-	unsigned char data[TRANS_MAX_BUFF_SIZE];
+	unsigned char data[];
 } PACKED transport_buf_t;
 
 typedef transport_buf_t *transport_buf_p;

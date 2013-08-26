@@ -1,5 +1,5 @@
 DEBUG=-g3
-CFLAGS=-std=c99 -D_GNU_SOURCE $(DEBUG)
+CFLAGS=-std=gnu99 $(DEBUG)
 #LDFLAGS=
 
 LDLIBS=-lmysqlclient -lpq -lodbc

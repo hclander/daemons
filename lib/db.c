@@ -55,6 +55,28 @@ int db_isConnected(DB_T *db) {
 	return (db->con)?true:false;
 }
 
+/*
+ * Hace una comprobacion mas explicita
+ */
+int db_chkConnection(DB_T *db) {
+	RES_T *res;
+
+	if (db_isConnected(db)) {
+
+		res = db_query(db,"select database()");
+
+		if (res) {
+			// prodría verificar el valor devuelto;
+
+			res_destroy(res);  //Free results
+			return true;
+		}
+
+	}
+
+	return false;
+}
+
 int db_getAffectedRows(DB_T *db) {
 	return db->affectedRows;
 }

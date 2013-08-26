@@ -52,6 +52,7 @@ DB_T *db_create(char *host, char *database, char *user, char *password);
 int db_connect(DB_T *db);
 RES_T *db_query(DB_T *db, char *sql) ;
 int db_isConnected(DB_T *db);
+int db_chkConnection(DB_T *db);
 
 char *db_getError(DB_T *db);
 

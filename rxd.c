@@ -23,6 +23,8 @@
 #define UDP_DEFAULT_PORT 4490
 #define ACK_TIMEOUT_SECS 120   // Ack Timeout in seconds
 
+#define DB_TIMEOUT_SECS 300   // DATA BASE ACCESS TIMEOUT
+
 int udpPort =UDP_DEFAULT_PORT;
 int verboseLevel= 1;
 bool keepAsDaemon=true;
@@ -164,6 +166,10 @@ int runUDPserver() {
 	hashint_table_t ht;
 	time_t *lastTime;
 
+	time_t lastCheck;
+
+
+
 	char buf[TRANS_MAX_BUFF_SIZE];
 	DB_T *db;
 
@@ -211,6 +217,8 @@ int runUDPserver() {
 		die("Error connecting database");
 	}
 
+	lastCheck = time(NULL);
+
 	//TODO: select()/poll()
 
 	while(!terminate) {  // loop until terminate
@@ -229,8 +237,6 @@ int runUDPserver() {
 	   LOG_F_N("Incoming [%s:%u (%d)]",inet_ntoa(from.sin_addr),ntohs(from.sin_port),n);
 
 
-
-
 	   if ( !(lastTime=hashint_table_get(ht,ntohl(from.sin_addr.s_addr)))){
 		   lastTime = malloc(sizeof(time_t));
 		   *lastTime =  0;  //time(NULL);  // Para que la primera si se asienta..
@@ -243,9 +249,16 @@ int runUDPserver() {
 		   transport_buf_p trans =(transport_buf_p) buf;
 
 		   // Estoy sospechando que tras un tiempo la conexion con la bbdd se cierra....
-		   if (!db_connect(db)) {
-			   LOG_E("Database conextion is closed. Trying to reconnect");
-			   db_connect(db);
+		   if ((time(NULL)-lastCheck)>DB_TIMEOUT_SECS) {
+			   LOG_D("Checking DB connection");
+
+			   if (!db_chkConnection(db)) {
+				   LOG_E("Database connection appears to be closed. Trying to reconnect");
+				   db_disconnect(db);
+				   db_connect(db);
+			   }
+
+			   lastCheck =time(NULL);
 		   }
 
 		   // Ahora sólo guaradamos la carga util . El resto se guarda como campos de la tabla
@@ -294,8 +307,8 @@ int runUDPserver() {
 
 	   }
 
-	   // *lastTime = time(NULL);
-	   //TODO: Guardar los datos a la BBDD
+	   //*lastTime = time(NULL);
+
 
 	}
 
@@ -304,6 +317,11 @@ int runUDPserver() {
 	db_destroy(db);
 
 	return EXIT_SUCCESS;
+}
+
+
+int runUpdServer_mysql() {
+
 }
 
 void doTestAndDie() {
@@ -439,9 +457,9 @@ void doTestAndDie() {
 			"\t\tChkSum:  0x%02X\n"
 			"\t\tChkSum2: 0x%02X\n"
 			"\t\tVerSum:  0x%02X\n"
-			, trans->header.start.flags.lendian
-			, trans->header.start.flags.crc
-			, trans->header.start.flags.version
+			, trans->header.start.lendian
+			, trans->header.start.crc
+			, trans->header.start.version
 			, ntohl(trans->header.sn)
 			, ntohs(trans->header.length)
 			, trans->data[ntohs(trans->header.length)-TRANS_HEADER_SERIAL_SIZE-1]
