@@ -183,4 +183,115 @@ INSERT INTO sensor_localizable_tbl (localizable_id, sensor_id, sensor_type, sens
 INSERT INTO sensor_localizable_tbl (localizable_id, sensor_id, sensor_type, sensor_idx) VALUES (1,6,0x0D,0x06);
 INSERT INTO sensor_localizable_tbl (localizable_id, sensor_id, sensor_type, sensor_idx) VALUES (1,7,0x0D,0x07);
 
+/* FUNCIONES */
+
+delimiter $$
+DROP PROCEDURE IF EXISTS proc_gps_getAllRows$$
+CREATE PROCEDURE proc_gps_getAllRows()
+BEGIN
+    SELECT
+        gps_id, 
+        seq_l,
+        lat / 1000000.0 as lat, 
+        lon / 1000000.0 as lon, 
+        bearing, 
+        speed, 
+        fix, 
+        hdop, 
+        from_unixtime(time) as time, 
+        time as epoch,
+        localizable_id
+     FROM
+        gps_tbl
+     ORDER BY gps_id DESC;
+END
+$$
+
+DROP PROCEDURE IF EXISTS proc_gps_getLast5Rows$$
+CREATE PROCEDURE proc_gps_getLast5Rows()
+BEGIN  
+    SELECT
+        gps_id, 
+        seq_l,
+        lat / 1000000.0 as lat, 
+        lon / 1000000.0 as lon, 
+        bearing, 
+        speed, 
+        fix, 
+        hdop, 
+        from_unixtime(time) as time, 
+        time as epoch,
+        localizable_id
+     FROM
+        gps_tbl
+     ORDER BY gps_id DESC
+     LIMIT 5;
+END
+$$
+
+DROP PROCEDURE IF EXISTS proc_gps_getLastRows$$
+CREATE PROCEDURE proc_gps_getLastRows(numRows int)
+BEGIN
+/*
+  Parece que MySql no soporta parametros en la clausula LIMIT por lo que hay que usar
+  una consulta dinámica usando PREPARE STMT
+*/
+    PREPARE STMT FROM 
+      " SELECT  
+         gps_id, 
+         seq_l,
+         lat / 1000000.0 as lat, 
+         lon / 1000000.0 as lon, 
+         bearing, 
+         speed, 
+         fix, 
+         hdop, 
+         from_unixtime(time) as time, 
+         time as epoch,
+         localizable_id 
+       FROM 
+        gps_tbl g
+       ORDER BY gps_id DESC
+       LIMIT ? "; 
+
+    SET @LIMIT = numRows;
+    EXECUTE STMT USING @LIMIT;
+    DEALLOCATE PREPARE STMT;
+END
+$$
+
+DROP PROCEDURE IF EXISTS proc_gps_findLatLonWithPrec$$
+CREATE PROCEDURE proc_gps_findLatLonWithPrec(aLat float, aLon float, aPrec int)
+BEGIN
+    SELECT
+        gps_id, 
+        seq_l,
+        lat / 1000000.0 as lat, 
+        lon / 1000000.0 as lon, 
+        bearing, 
+        speed, 
+        fix, 
+        hdop, 
+        from_unixtime(time) as time, 
+        time as epoch,
+        localizable_id
+     FROM
+        gps_tbl g
+     WHERE
+        ABS(g.lat - TRUNCATE(aLat * 1000000,0))<=aPrec
+        and ABS(g.lon -TRUNCATE(aLon * 1000000,0))<=aPrec
+     ORDER BY gps_id DESC
+     LIMIT 100;
+END
+$$
+
+DROP PROCEDURE IF EXISTS proc_gps_findLatLon$$
+CREATE PROCEDURE proc_gps_findLatLon(aLat float, aLon float)
+BEGIN
+  call proc_gps_findLatLonWithPrec(aLat, aLon, 50);
+END
+$$
+
+delimiter ;
+
 

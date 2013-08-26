@@ -181,7 +181,7 @@ int mydb_insert_cnx_subframe(DB_T *db, int rx_id, int loc_id, time_t time, void 
 			time
 		);
 
-		res=db_query(db);
+		res=db_query(db,sql);
 		res_destroy(res);
 		return db_getAffectedRows(db);
 	}

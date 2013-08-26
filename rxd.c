@@ -211,7 +211,7 @@ int runUDPserver() {
 
 	fromLen = sizeof(from);
 
-	db = db_create("localhost","Yii","user","entrar");
+	db = db_create("localhost","Yii","juanky","demo");
 
 	if (!db_connect(db)) {
 		die("Error connecting database");
