@@ -126,6 +126,70 @@ int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t
 	return 0;
 }
 
+int mydb_insert_sensor_subframe(DB_T *db, int rx_id, int loc_id, time_t time, void *buf, size_t len) {
+
+	char *tpl = " INSERT INTO sensor_value_tbl(rx_id, loc_id, sensor_type, sensor_idx, sensor_id, sensor_value, time ) "
+				" VALUES (%d, %d, %d, %d, (%s), %d, %d ) ";
+
+	char *stpl0 = " SELECT sensor_id from sensor_localizable_tbl where localizable_id = %d and sensor_type = %d and sensor_idx= %d";
+
+
+	if (db_isConnected(db)) {
+
+		char sql[1500];
+		char sub[500];
+		RES_T *res;
+
+		frm_cmd_sensor_p sen = (frm_cmd_sensor_p) buf;
+
+		snprintf(sub,sizeof(sub),stpl0,loc_id,sen->sensor.type,sen->sensor.num);
+
+		snprintf(sql,sizeof(sql),tpl,rx_id, loc_id, sen->sensor.type, sen->sensor.num, sub,sen->sensor.value, time);
+
+		res = db_query(db, sql);
+		res_destroy(res);
+
+		return db_getAffectedRows(db);
+
+	}
+
+
+	return 0;
+}
+
+
+int mydb_insert_cnx_subframe(DB_T *db, int rx_id, int loc_id, time_t time, void *buf, size_t len) {
+
+
+	char *tpl = " INSERT INTO cnx_tbl(rx_id, localizable_id, imei, mode, version, reason, time ) "
+				" VALUES ( %d, %d, %s, %d,%d,%d, %d ) ";
+
+
+	if (db_isConnected(db)) {
+
+		char sql[1500];
+		frm_cmd_cnx_p cnx = (frm_cmd_cnx_p) buf;
+		RES_T *res;
+
+		snprintf(sql,sizeof(sql),tpl,
+			rx_id,
+			loc_id,
+			cnx->imei,
+			cnx->om,
+			cnx->sv,
+			cnx->cr,
+			time
+		);
+
+		res=db_query(db);
+		res_destroy(res);
+		return db_getAffectedRows(db);
+	}
+
+	return 0;
+}
+
+
 RES_T * mydb_select_undecoded_transport_frames(DB_T *db) {
 
 	 char *sql="SELECT * FROM rx_tbl where status=0 order by ts";
