@@ -250,12 +250,13 @@ int runMonitor() {
 		   db_connect(dbw);
 	   }
 
-	   LOG_N("Checking for undecoded frames...");
+	   LOG_D("Checking for undecoded frames...");
 	   res = mydb_select_undecoded_transport_frames(dbr);
 
 	   if (res_getRowCount(res)>0) {
 		   LOG_F_N("Processing %d new frames..",res_getRowCount(res));
 		   processData(res,dbw,dbr);
+		   LOG_N("... done");
 	   }
 
 	   res_destroy(res);
@@ -280,7 +281,7 @@ int runMonitor() {
 //
 //	   }
 
-	   LOG_F_N("...All done. Sleeping %d",timeLapse);
+	   LOG_F_D("...All done. Sleeping %d",timeLapse);
 	   sleep(timeLapse);   // Wait 5 seconds;
    }
 
