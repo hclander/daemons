@@ -39,6 +39,36 @@ int mydb_insert_transport_frame(DB_T *db, long ip, int port,long sn, void *buf, 
 }
 
 
+int mydb_insert_trashed_transport_frame(DB_T *db, long ip, int port,long sn, void *buf, size_t len) {
+
+	 char *tpl= " INSERT INTO trash_rx_tbl ( ip, port, ns, len, data ) "
+					 " VALUES ( %d, %d, %d, %d, '%s' ) ";
+
+
+	if (db_isConnected(db)) {
+
+		char chunk[2*len+1];
+
+		mysql_real_escape_string(db->con,chunk,buf,len);
+
+		char sql[3000];
+
+
+		sprintf(sql,tpl,ip,port,sn,len,chunk);
+
+		RES_T *res=db_query(db,sql);
+
+		res_destroy(res);
+
+		return db_getAffectedRows(db);
+
+	}
+
+
+	return 0;
+}
+
+
 int mydb_update_transport_frame_status(DB_T *db, int rx_id, int status) {
 	char *tpl = " UPDATE rx_tbl SET status = %d WHERE id = %d ";
 

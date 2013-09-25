@@ -46,6 +46,19 @@ CREATE TABLE `rx_tbl` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
 
+CREATE TABLE trash_rx_tbl (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ts timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ip int unsigned NOT NULL,
+  port smallint unsigned NOT NULL,
+  ns int unsigned NOT NULL,
+  status tinyint NOT NULL DEFAULT '0',
+  len smallint unsigned NOT NULL,
+  data blob NOT NULL,
+  PRIMARY KEY (`id`)    
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 CREATE TABLE gps_tbl (
 	gps_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
 	cmd TINYINT UNSIGNED NOT NULL,

@@ -272,6 +272,12 @@ typedef union {
 typedef frm_cmd_gps_all_t *frm_cmd_gps_all_p;
 
 
+typedef union {
+
+
+} frm_cmd_hist_t;
+
+
 // TRAMA DE CONEXION
 //- 0x06 = Conexión: Lon(1) IMEI(15) IMEI_XOR(1) MO(1) VS(2) MC(1) [preferiblemente irá acompañando a una trama Gps] [tb. podría usar el formato "viejo" dentro de una trama compatible; en este caso tb. sería preferible que fuese precedida de una trama Gps]
 //            - Lon: puede ser 0 (toma valor implícito) o >20 (cuando queramos añadir bytes nuevos)

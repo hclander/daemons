@@ -243,10 +243,9 @@ int runUDPserver() {
 		   hashint_table_add(ht,ntohl(from.sin_addr.s_addr),lastTime);
 	   }
 
+	   transport_buf_p trans =(transport_buf_p) buf;
 
 	   if (frame_test_transport(buf,n)) {
-
-		   transport_buf_p trans =(transport_buf_p) buf;
 
 		   // Estoy sospechando que tras un tiempo la conexion con la bbdd se cierra....
 		   if ((time(NULL)-lastCheck)>DB_TIMEOUT_SECS) {
@@ -304,6 +303,13 @@ int runUDPserver() {
 			   sendAckOld(sckt,sn,(struct sockaddr *)&from,fromLen);
 			   *lastTime = time(NULL);
 		   }
+
+	   }
+	   else {
+		   LOG_E("Incorrect Transport Frame!");
+
+		   // En este caso grabamos todo para depuracion
+		   mydb_insert_trashed_transport_frame(db,ntohl(from.sin_addr.s_addr),ntohs(from.sin_port),ntohl(trans->header.sn),buf,n);
 
 	   }
 
