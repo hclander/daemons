@@ -1,0 +1,377 @@
+********************************
+** Protocolo registro de datos ** (borrador v1.2)
+*********************************
+
+Hay 2 protocolos distintos de registro de datos:
+
+    Orientado a fecha y hora
+    Orientado a secuencia
+
+El primero está pensado para el caso general. Se basa en que el servidor pide lo que le falte por intervalos de fecha y hora. Al no usar números relacionados con los bloques de memoria, los problemas en el hardware afectan menos. Gestiona eficientemente los pequeños huecos de información en tiempo real, sin embargo es lento gestionando huecos grandes, por lo que no puede usarse para Rallies.
+
+El segundo está pensado para los rallies. Se basa en que el servidor pide lo que le falte por intervalos de números de secuencia, que están relacionados con los bloques de memoria del localizador (aunque el servidor no sabe cómo). Al estar esta secuencia grabada en la memoria del localizador, los problemas en el hardware afectan más. Gestiona eficientemente los grandes huecos de información y también los pequeños, salvo para el caso genérico (no el de rallies).
+Para ambos protocolos, el "centro" de todo es el registro Gps.
+
+El localizador informará en la trama de conexión del protocolo que usa y del formato fecha y hora que usa, en caso de que use el protocolo orientado a fecha y hora.
+
+
+1.- Protocolo orientado a fecha y hora
+
+------------------------------------------------------
+El identificador de cada registro es su fecha y hora (bien en epoch o en formato binario "ordenado").
+
+El localizador marcará cada registro enviado en tiempo real (monitor) con un número de secuencia (SECL) de 2 bytes, que empezará en 1 para cada nueva sesión (0 significa que no lleva nº de secuencia).
+
+
+El localizador no marcará con SECL los "reenvíos" ni las tramas que no pasen por el registro (SECL=0). En cualquier caso, SECL no se almacena en el registro.
+
+El servidor marcará todas sus preguntas con su propia numeración SECS y el localizador marcará sus respuestas con SECL=0, pero añadirá el SECS del servidor, para que aquel sepa relacionar la pregunta con la(s) respuesta(s).
+
+Al no haber número de secuencia en el registro de datos:
+
+    El localizador debe ser capaz de encontrar un registro a partir de su FH (fecha y hora):
+        bien porque mantiene una tabla a modo de índice, que relacione FH con la posición en memoria de ese registro 
+        bien porque el formato de FH garantiza que el orden "alfabético" coincide con el cronológico y por tanto puede buscarse iterativamente de forma eficiente
+    Cada vez que el servidor detecte que le faltan registros, pedirá al localizador que le envíe todos los registros entre esas dos FH. El localizador enviará todos los registros consecutivos que quepan en una trama de transporte, y parará aunque le falten más por enviar. De esta forma el servidor se garantiza que le llegan ordenados, aunque a cambio tendrá que realizar una nueva petición, aumentando la FH inicial, por cada trama de transporte del localizador. Es posible que la última petición no obtenga registros, a lo que el localizador contestará explícitamente.
+
+Puede utilizarse una codificación diferente para monitor y para registro (histórico), que manera que en el registro se almacenen los datos comprimidos para aprovechar al máximo la memoria no volátil.
+
+Al usar FH como "clave primaria", ya no hay problemas cuando se sustituye un localizador por otro, y al no guardarse número de secuencia en el registro, ya no hay problemas cuando la memoria del localizador falla.
+
+
+
+2.- Protocolo orientado a secuencia
+
+----------------------------------------------------
+El identificador de cada registro es un número de secuencia incremental y cíclico desde 0x0000 hasta 0xFFFF. Esta secuencia está relacionada con la memoria física del localizador, como se explica más adelante, de manera que la memoria será sobreescrita completamente varias veces, antes de que alcance su valor máximo.
+
+El localizador marcará cada registro enviado con dicho número de secuencia (SECL) de 2 bytes. Esta secuencia no tiene relación con la conexión. Además es no volátil y siempre avanza en el localizador.
+
+Para el caso de los rallies, no habrá tramas de monitor, ya que los bloques de histórico se generan tan rápido que no hay necesidad. Si en el futuro se implementasen (por ejemplo para usar este protocolo para el caso general), llevarían doble SECL (una secuencia de conexión más una secuencia de memoria).
+
+El localizador no marcará con SECL las tramas que no pasen por el registro (SECL=0), pero sí los "reenvíos". SECL no se almacena en el registro, ya que no es necesario, al poder calcularse el número de bloque a partir de él.
+
+El servidor marcará todas sus preguntas con su propia numeración SECS y el localizador enviará sus respuestas con SECLy con el SECS del servidor, para que aquel sepa relacionar la pregunta con la(s) respuesta(s).
+
+Cada vez que el servidor detecte que le faltan registros, pedirá al localizador que le envíe todos los registros entre esos dos SECL. El localizador enviará todos los bloques consecutivos que quepan en cada trama de transporte, y seguirá enviando bloques hasta finalizar. Por tanto pueden llegar desordenados al servidor, y éste tendrá que realizar nuevas peticiones hasta obtenerlos todos.
+
+Para restar complejidad, el valor máximo de la secuencia (65536) tiene que ser múltiplo del número de bloques total, y por tanto solo hay un número limitado de valores posibles para el tamaño de bloque, que depende del tamaño de la memoria en concreto de cada localizador. De esta manera garantizamos que al llegar al valor máximo estamos justo al final de la memoria y por tanto, "ambos desbordan a 0" al mismo tiempo.
+
+El número de bloque se obtiene aplicando a la secuencia el módulo con el número total de bloques. Para asegurar esto el tamaño en bytes del bloque debe ser tal que 65536 sea múltiplo del número total de bloques (p.e. si disponemos de 64K => 256, 512 o 1024 bytes por bloque, mientras que si disponemos de 192K => 384 o 768 bytes por bloque, y si disponemos de 224K => 448 o 896 bytes por bloque).
+
+Si el servidor pide un intervalo más grande que el número de bloques total (el servidor no tiene porqué saberlo), el localizador contestará únicamente con una trama de equivalencia de secuencia inicial, de tal manera que hará una nueva petición con el número de secuencia corregido, lo que provocará que se envíe el contenido completo de la eeprom.
+
+Por tanto, el localizador debe ser capaz de detectar este caso. El cálculo es sencillo salvo en ciertos casos en que la secuencia acaba de desbordar.
+
+Al pedir los bloques mediante una secuencia grabada en la memoria del localizador, podemos tener problemas cuando se sustituye un localizador por otro, o cuando la memoria del localizador falla.
+
+
+
+
+*********************************
+***** Protocolo transmisión ***** (borrador v0.9)
+*********************************
+
+El formato de la trama de transporte es el mismo en ambos sentidos, con estas salvedades:
+        - En sentido servidor a localizador, el máximo teórico es 1536 bytes, pero con algunos operadores no, por lo que pondremos un límite de 1465 bytes.
+        - En sentido servidor a localizador, el NSR puede ser 0x00000000, para casos dónde es útil no indicar el NSR del localizador (p.e. tramas "prefabricadas", órdenes de cambio de nº de serie que no tienen éxito...)
+        - En sentido servidor a localizador, solo debe incluirse un comando por trama de transporte.
+
+Respecto a los números de secuencia, se entienden que son de "aplicación", no de "conexión", por lo que quedan abiertas las siguientes posibilidades:
+        - Que el localizador vuelva a iniciar en 1, o no, su secuencia ante una reconexión o reinicio.
+        - Que el servidor vuelva a iniciar en 1, o no, su secuencia ante una reconexión del localizador.
+        - Que el servidor utilice una secuencia diferente para cada aplicación, o que todos compartan la misma.
+
+Sin embargo, sí que parece claro que:
+        - El localizador debe utilizar para la "aplicación" de envío Gps en tiempo real, una secuencia diferente (aunque de momento es la única), para permitir que el servidor detecte fácilmente si hay huecos. Por tanto podría llegar a haber secuencias SECL distintas.
+
+
+
+-Formato trama de transporte:
+-------------------------------------------
+
+    Start(1) Lon(2) NSR(4) DATOS(n) CHK(1/2)
+
+   
+        - Entre paréntesis se indica el nº de bytes
+        - Start: ecxx vvvv (e=bit extremista menor ,, c=CRC en vez de XOR ,, v=versión del protocolo) [en ppio. solo v]
+        - Lon: nº de bytes que vienen a continuación (incluído checksum); puede ser 0 (desconocida), en cuyo caso si el paquete no llega entero no se puede recomponer [en ppio. será así para las tramas binarias que envía el localizador provenientes de su puerto serie]
+        - NSR = Número de Serie (el localizador aceptará cualquier trama que contenga su NSR o 0x00000000, aunque el servidor debe evitar usar esto)
+        - DATOS: en sentido servidor a localizador tiene un tamaño máximo de 1452 bytes.
+        - CHK: checksum de todo lo anterior (incluido start); 1 byte si es XOR, 2 bytes si es CRC [en ppio. solo XOR]
+
+
+El formato de las subtramas de datos/comandos, es diferente en cada sentido (localizador a servidor, o servidor a localizador).
+
+
+
+LOCALIZADOR a SERVIDOR
+--------------------------------------------
+
+-Transmite a otro(s) puerto(s):
+    - UDP 4490 a 4497
+    - TCP 4480 a 4487
+    [en principio seguiremos con UDP y al puerto 4490]
+
+
+-Formato trama de datos:
+------------------------------------
+
+    Una trama de datos se puede componer de varias subtramas de comandos/eventos, de igual o distinto tipo, una tras otra. Las subtramas pueden estar ordenadas de cualquier forma, salvo las de Gps, ya que dan su hora y posición a todas las que vengan después (hasta que aparezca otra de Gps).
+
+    El localizador decide cuántas subtramas quiere enviar en una trama de transporte (y por tanto su longitud).
+   
+    Todo lo que envíe el localizador debe llevar una trama de Gps (excepto las tramas binarias de la placa de periféricos y las tramas internas -cosas irrelevantes para el cliente como tramas de reprogramación-).
+   
+    - Comando(1) Lon(0/1/2) Datos(n) XOR(0/1)
+
+        - Lon: puede no existir, ser de 1 byte o de 2 (dependiendo del comando)
+        - Datos: es de longitud fija para algunos comandos y variable para otros
+        - XOR: puede no existir o ser de 1 byte (dependiendo del comando) [en ppio. no existirá para las tramas que envía el localizador provenientes de su puerto serie, ya que no provienen de su memoria y probablemente tengan también su propio checksum]
+   
+
+    Relación de comandos:
+   
+        - 0x04 = Trama "compatible": Lon(2) SECS(2) tt(1) Datos(n) [no necesita ir acompañada de una trama Gps; además en transporte la longitud tiene que ser 0 si en esta trama lo es]
+
+            - Lon: puede ser 0, si el localizador no la conoce y tiene que transmitirla "al vuelo"
+            - SECS: será >0 si es respuesta a una pregunta del servidor.
+            - tt: tipo de trama del sistema viejo (p.e. 58 para checksums, 43 para bloques eeprom, 64 para respuesta AT...)
+            - Datos: cualquier trama del sistema viejo
+            - NOTA: si usamos este comando para enviar la trama de IMEI "vieja", podemos mejorarla añadiendo el XOR del IMEI en el último nibble de los 8 bytes de IMEI.
+
+
+        - 0x06 = Conexión: Lon(1) IMEI(15) IMEI_XOR(1) MO(1) VS(2) MC(1) [preferiblemente irá precedida de una trama Gps y seguida por tramas de información de configuración] [tb. podría usar el formato "viejo" dentro de una trama compatible; en este caso tb. sería preferible que fuese acompañada de las tramas mencionadas]
+            - Lon: puede ser 0 (toma valor implícito) o >20 (cuando queramos añadir bytes nuevos)
+            - IMEI: podría ser guardado en Ascii en otra zona de la memoria (o en "hexa" por el método viejo, en el lugar "viejo")
+            - IMEI_XOR: XOR de los dígitos del IMEI (se almacena con el mismo método que se almacene el IMEI)
+            - MO: Modo operación (0, 4, 5)
+            - VS: Versión Software
+            - MC: Motivo Conexión
+
+
+        - 0x0A = Mensaje de texto puerto serie: Datos(n) [irá siempre acompañando a una trama Gps]
+            - Datos: formato Display (¿245 bytes máximo?) = empieza siempre por "|" seguido por 2 dígitos con el tipo de datos ("TF", "DV", "AK"...) y termina siempre con 0x0D ,, Ejemplo de Datos "texto": "|TF" & texto (¿239 bytes máximo?) & CHK_DISPLAY (2 bytes) & 0x0D.
+
+
+        - 0x0B = Trama binaria puerto serie: Datos(n) [no necesita ir acompañada de una trama Gps; además en transporte la longitud puede ser 0, si el localizador no la conoce y tiene que transmitirla "al vuelo"]
+            - Datos: formato Binario (¿251 bytes máximo?) = # LON LON Datos2 (¿247 bytes máximo?) CHK
+
+
+        - 0x10 = Gps con hora humana: Lon(1) SECL(2) SECS(2) signo_lat+latitud(3) longitud(3) signo_longitud+rumbo(1) velocidad(1) fix+hdop(1) hora_humana(4)
+            - Lon: puede ser 0 (toma valor implícito) o >17 (cuando queramos añadir bytes nuevos).
+            - SECL: será 0 si es de histórico y >0 si es de monitor (debe ser una secuencia diferente de otras que pudieran existir en el localizador).
+
+            - SECS: será 0 si es de monitor y >0 si es respuesta a una petición de histórico.
+            - signo_latitud(1 bit): Sur=1
+            - latitud: 7 bits de grado + 2 bytes de minutos multiplicados por 1000
+            - longitud: 8 bits de grado + 2 bytes de minutos multiplicados por 1000
+            - signo_longitud(1 bit): Oeste=1
+            - rumbo(7 bits) = (rumbo_real/4 => de 0º a 90º)
+            - velocidad en nudos
+            - fix: 1 bit
+            - hdop: 7 bits
+            - hora_humana: año (6 bits) + mes (4 bits) + día (5 bits) + hora (5 bits) + min (6 bits) + seg (6 bits) ,, esta ordenación garantiza orden alfabético = orden cronológico
+
+
+        - 0x11 = Gps con hora epoch unix: Lon(1) SECL(2) SECS(2) signo_lat+latitud(3) longitud(3) signo_longitud+rumbo(1) velocidad(1) fix+hdop(1) hora_epoch(4)
+            - Es idéntica a 0x10 pero la fecha y hora son los segundos transcurridos desde 1/1/1970 0h UTC.
+
+
+        - 0x13 = Gps "monitor/histórico" con formato viejo: Lon(1) SECL(2) SECS(2) Datos2(m)
+            - Lon: será 17 cuando sea "monitor", >17 y <254 cuando sea monitor con bytes adicionales de trama extendida, y 254 cuando sea histórico. Será 5 cuando no haya registros en las FH indicadas.
+            - SECL: misma consideración que en trama 0x10.
+            - SECS: misma consideración que en trama 0x10.
+            - Datos2: es una trama de monitor de 13 o más bytes, o bien es una trama de histórico comprimida (250 bytes), que contiene varias subtramas (p.e. 13+9+9+2+2+...). Será 0x00 cuando no haya registros en las FH indicadas.
+            - NOTA: en el histórico, al ser por bloques comprimidos, no todas las posiciones tienen FH, por lo que se recibirá un bloque entero aunque solo se esté pidiendo una FH del mismo.
+            - NOTA: no se envía información de eeprom ni bloque (esos conceptos ya no existen) y se cambia la codificación de los últimos 2 bytes: aaaaaammmmddddde (año-mes-día-evento) para facilitar la comparación de fechas; si hay evento, se añade un byte más para indicar el tipo (1=última trama, 2=sensor mov., 3=inicio_apagado, 4=apagado inminente, 5=encendido).
+
+
+        - 0x15 = Gps "histórico Rally" con formato viejo: Lon(2) SECL(2) SECS(2) Datos2(m)
+            - Es idéntica a la 0x13, con ciertas salvedades para los rallies.
+            - Lon: será 4 + el tamaño de un bloque entero (mínimo 250 bytes). Será 6 si es una trama de corrección de secuencia inicial.
+            - SECL: es un contador incremental y cíclico desde 0 a 65535, relacionado con el número de bloque.
+            - SECS: misma consideración que en trama 0x10.
+            - Datos2: es una trama de histórico comprimida (mínimo 250 bytes), salvo que los bits del hdop se usan para aumentar la precisión de la parte decimal de los minutos de la coordenada gps (primer nibble ascii para la latitud y segundo para la longitud). Si es una trama de corrección de secuencia inicial, SECL será la secuencia inicial enviado por el servidor, y Datos2 será la secuencia equivalente.
+            - NOTA: no existe la posibilidad de pedir posiciones sueltas.
+            
+            los localizadores de rally usan una pequeña variante.
+				Básicamente se trata de usar los bits de hdop para mejorar la precisión de las coordenadas:
+
+    			si fix=0 => hdop=255 y no hay coordenadas
+    			si fix=1 y hdop>=100 => error inesperado
+    			si fix=1 y hdop<=99 => convertimos el entero a "dos dígitos ascii"; el primero es a añadir como último dígito a los minutos de la latitud y el segundo, a los de la longitud. Hdop es desconocido en este caso => lo podemos poner a 0.
+
+				Resumiendo, si fix=1 y hdop=8, minutos_latitud=59,342 y minutos_longitud=34,034 => minutos_latitud no cambia, minutos_longitud=34,0348 y hdop=0.
+
+
+        - 0x20 = Hora RTC: Lon(1) epoch(4) ,, p.e. la hora del tacógrafo; aún así conviene que vaya acompañada de una trama Gps para calcular la deriva del RTC (además de para localizar los datos)
+
+
+        - 0xAs = Sonda analógica: signo+divisor+origen+lon-1(1) valor(n) [irá siempre acompañando a una trama con hora (preferiblemente una Gps) con la que se enlaza]
+            - s(4 bits) = nº de sonda (16 valores)
+            - signo+divisor+origen+lon-1:
+                - signo(1bit) es 1 si valor es negativo
+                - divisor(3 bits) es la potencia de 10 por la que hay que dividir el valor (así siempre enviamos enteros)
+                - origen(2 bits) es el origen del sensor: 0=directo, 1=placaperiféricos, 2=rf, 3=reservado
+                - lon-1(2 bits) es el nº de bytes de valor
+       
+
+        - 0xCsssv = Sensores de salida de 2 estados (relés...): (1 byte) [muestra su estado; no actúa sobre ellos; irá siempre acompañando a una trama con hora (preferiblemente una Gps) con la que se enlaza]
+
+            - s(3 bits)=número_sensor: 0=R0, 1=R1, 2=R2, 3=R3, 4=R4, 5=R5, 6=R6, 7=R7
+            - v(1 bit)=valor (booleano)
+
+
+        - 0xDsssv = Sensor digital directo de 2 estados: (1 byte) [irá siempre acompañando a una trama con FH (preferiblemente una Gps) con la que se enlaza]
+
+            - s(3 bits)=número_sensor: 0=contacto real, 1=S1, 2=S2, 3=S3, 4=S4, 5=S5, 6=S6, 7=S7
+            - v(1 bit)=valor (booleano)
+
+
+        - 0xEsssv = Sensor digital directo de 2 estados: (1 byte) [irá siempre acompañando a una trama con FH (preferiblemente una Gps) con la que se enlaza]
+            - s(3 bits)=número_sensor: 0=S8, 1=S9, 2=S10, 3=S11, 4=S12, 5=S13, 6=sensor_movimiento, 7=contacto_simulado
+            - v(1 bit)=valor (booleano)
+
+
+        - 0xFossv = Sensor digital no directo de 2 estados: (1 byte) [irá siempre acompañando a una trama con FH (preferiblemente una Gps) con la que se enlaza]
+
+            - o(1 bit)=origen: 0=placaperiféricos, 1=rf
+            - s(2 bits)=número_sensor: 0=S14, 1=S15, 2=S16, 3=S17
+            - v(1 bit)=valor (booleano)
+
+
+
+    Ejemplos:
+
+        - Gps "humano" monitor (lat=42,22 lon=-8,65 rumbo=67º velocidad=60nudos fix=1 hdop=12 fh=20131231235959):
+            00 0019 SRSRSRSR 10 12 0001 0000 2A3390 089858 91 3C 8C FHFHFHFH XO
+
+        - Gps "epoch" monitor con sensores (lat=42,22 lon=-8,65 rumbo=67º velocidad=60nudos fix=1 hdop=12 fh=20131231235959) + contacto=on + S1=off + S.A.1=-15.34ºC:
+            00 001F SRSRSRSR 11 18 0001 0000 2A3390 089858 91 3C 8C 52C35A7F D1 D2 A1A205FE XO
+
+        - Gps "epoch" monitor + mensaje de texto puerto serie (|YT):
+            00 002E SRSRSRSR 11 29 0001 0000 2A3390 089858 91 3C 8C 52C35A7F 0A 7C59543031333735313032333136373230303144340D XO
+
+        - Gps "vieja" monitor (lat=42,22 lon=-8,65 rumbo=67º velocidad=60nudos fix=1 hdop=12 fh=20131231235959):
+            00 0018 SRSRSRSR 13 ll 0001 0000 DATOSDATOSDATOS......(13)...DATOS XO
+
+        - Gps "vieja" histórico (lat=42,22 lon=-8,65 rumbo=67º velocidad=60nudos fix=1 hdop=12 fh=20131231235959...):
+            00 0105 SRSRSRSR 13 FE 0000 0001 DATOSDATOSDATOS......(250)...DATOS XO
+
+        - Gps "histórico rally" (lat=42,22 lon=-8,65 rumbo=67º velocidad=60nudos fix=1 hdop=12 fh=20131231235959...):
+            00 018A SRSRSRSR 15 0184 0000 0001 DATOSDATOSDATOS......(384)...DATOS XO
+
+        - Trama binaria puerto serie (asentimiento binario):
+            00 000C SRSRSRSR 0B 230003999730 XO
+
+        - Trama compatible (bloque 1FH. El localizador enviará todos los registros consecutivos que quepan en una trama de transporte, y parará aunque le falten más por enviar. De esta forma el servidor se garantiza que le llegan ordenados, aunque a cambio tendrá que realizar una nueva petición por cada trama de transporte del localizador.):
+            00 0105 SRSRSRSR 04 0100 0001 2B 010400D6000000FFFF55FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF351777040553248000060079A43C0505000000173C000000000600008240FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1C0001FF1E0000000505000040000000010101FF01010001000003FF00FF003200FF01FF01FF01FF01FF01FF01FF01FF01FF01FF01FF01FF01FF01FF01FF01FF012301FF02FF02FF020F0203FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF001200FF01FF01FF01FF01FF01FF01FF0101 XO
+
+
+
+OPCIÓN: se podría crear un tipo de trama de monitor con secuencia de conexión y secuencia de histórico simultáneamente, para poder usar el protocolo de rallies para el caso general.
+
+
+DUDA: ¿añadimos XOR a las tramas de Gps? (tendría que estar escrito tb. en la memoria)
+DUDA: ¿añadimos XOR a las tramas de sensor analógico? (tendríamos que reducir 1 bit el divisor y 2 la longitud, para implementar ¡un checksum de 3 bits!)
+DUDA: ¿añadimos contador de eeprom sobreescrita a la trama de conexión?
+DUDA: ¿añadimos longitud a trama 0x0A (si el localizador tiene búfer) o impedimos que después de esta trama vaya ninguna otra?.
+
+
+
+SERVIDOR a LOCALIZADOR
+--------------------------------------------
+
+Cada trama de datos llevará una única subtrama de comando, para facilitar la tarea al localizador.
+
+
+
+-Formato trama de datos:
+
+    - Comando(1) Lon(1/2) Datos(n)
+
+        - Lon: puede ser de 1 byte o de 2 (dependiendo del comando)
+        - Datos: es de longitud fija para algunos comandos y variable para otros (1449 bytes máximo para las tramas largas y 256 bytes máximo para las cortas)
+   
+
+    Relación de comandos:
+   
+        - 0xE1 = Pet. registro datos por fechas/secuencia: Lon(1) SECS(2) INI(4) FIN(4)
+                -Lon: puede ser 0 (toma valor implícito) o >10 (cuando queramos añadir bytes nuevos)
+                -SECS: secuencia que copiará el localizador para darnos su respuesta.
+                -INI: epoch inicial o fh_humano inicial o número de secuencia inicial (dependiendo del protocolo del localizador).
+                -FIN: análogo a INI.
+
+        - 0xE2 = Escribe byte: Lon(1) Pos(2) Valores(n)
+                -Lon: puede ser 0 (toma valor implícito 3) o >3 (cuando queramos escribir varios bytes consecutivos)
+
+        - 0xE5 = Enviar a puerto serie: Lon(2) Puerto(1) Datos(n)
+                -Puerto: nº de puerto serie al que queremos enviar
+                -Datos: máximo 1453 bytes
+
+        - 0xE8 = Control remoto: Lon(1) Orden(1)
+                -Lon: puede ser 0 (toma valor implícito) o >2 (cuando queramos añadir bytes nuevos)
+                -Orden: 1=resetea, 2=resetea y conecta
+
+        - 0xE9 = Cambio nserie: Lon(1) NSRnuevo(4)
+                -Lon: puede ser 0 (toma valor implícito) o >4 (cuando queramos añadir bytes nuevos)
+
+        - 0xEA = Pet. ckecksums: Lon(1) BL_ini(2) BL_fin(2)
+                -Lon: puede ser 0 (toma valor implícito) o >4 (cuando queramos añadir bytes nuevos)
+                -Si BL_ini=BL_fin=0 estamos pidiendo toda la eeprom; para Dataflash-Firmware usamos 0x010001F0, para Dataflash-Backup usamos 0x000F00FF, para Dataflash-Radares usamos 0x020002F0.
+
+        - 0xEB = Bloque reprogr.: Lon(2) Bloque(2) Datos(n)
+                -Datos: máximo 1451 bytes
+
+        - 0xEC = Fin reprogr.: Lon(1) 0x03030303(4)
+                -Lon: puede ser 0 (toma valor implícito) o >4 (cuando queramos añadir bytes nuevos)
+
+        - 0xED = Pet. bloque config.: Lon(1) BL_ini(1) BL_fin(1)
+                -Lon: puede ser 0 (toma valor implícito) o >2 (cuando queramos añadir bytes nuevos)
+
+        - 0xEE = Comando at: Lon(1) AT(68)
+                -Lon: puede ser 0 (toma valor implícito) o >68 (cuando queramos añadir bytes nuevos)
+
+        - 0xEF = Asentimiento: Lon(1) (por lo general enviamos 1 cada 2 minutos)
+                -Lon: puede ser 0 (toma valor implícito) o >0 (cuando queramos añadir bytes nuevos)
+               
+
+    Especiales:
+   
+        - 0xF0 = Inicio apagado: Lon(1) 0x5504040404 (5) , NSRalto (1)
+                -Lon: puede ser 0 (toma valor implícito) o >6 (cuando queramos añadir bytes nuevos)
+
+        - 0xF2 = Confirm. apagado: Lon(1) NSRbajo(1) , 0x0607080955 (5)
+                -Lon: puede ser 0 (toma valor implícito) o >6 (cuando queramos añadir bytes nuevos)
+
+        - 0xF7 = Poner en hora RTC: Lon(1) Hora(4)
+                -Lon: puede ser 0 (toma valor implícito) o >4 (cuando queramos añadir bytes nuevos)
+
+        - 0xF9 = Cancelación apagado: Lon(1) NSR(4)
+                -Lon: puede ser 0 (toma valor implícito) o >4 (cuando queramos añadir bytes nuevos)
+
+
+
+    Ejemplos:
+
+        - Pet. registro datos:
+            00 000C SRSRSRSR E1 06 0001 EPOC EPOC XO
+
+        - Bits2 (petición bloque 2):
+            00 0009 SRSRSRSR ED 02 0202 XO
+
+        - Bits1 (escritura de un patrón concreto en el bloque 2):
+            00 0109 SRSRSRSR EB 0101 02 0000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF XO
+
+        - Asentimiento:
+            00 0007 SRSRSRSR EF 00 XO
+
+
+
+OPCIÓN: se podría crear una trama de petición de números de secuencia "sueltos".
+
+
+
+DUDA: ¿hace falta NSR en 0xF9?
+DUDA: ¿agrupamos tramas con similar funcionalidad?: p.e. añadir a "comando remoto" los casos: "apagado", "comando at", "poner en hora RTC", "cambio nserie" ¿y "fin reprogr."?

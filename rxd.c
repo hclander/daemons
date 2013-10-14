@@ -330,194 +330,277 @@ int runUpdServer_mysql() {
 
 }
 
-void doTestAndDie() {
-
+void doOldGpsFrameTest() {
 	unsigned char buf[] = {0x00,0x00,0x17,0x01,0x02,0x03,0x04,0x11,0x00,0x00,0x00,0x01,0x2a,0x33,0x90,0x08,0x98,0x58,0x91,0x3c,0x8C,0x51,0xFA,0x32,0x41,0xAC}; //BB
 
-	unsigned char ogps[]= {0x00,0x00,0x1A,0x01,0x02,0x03,0x04,0x13,0x11,0x00,0x01,0x00,0x00,0xAA,0x86,0xEF,0x72,0x01,0xA8,0x58,0x9A,0x8B,0x29,0x05,0x4A,0x8D,0x27,0x3E,0xA4};
-	// 09/08/2013 12:33:46	41,48642	-5,718267	11	1	1	48	1	0	1	1	7	Zamora	CL-605	ZAMORA	1	0	1	3	39 = 0x27	1
-
-	frm_cmd_gps_t gps;
-	frm_cmd_gps_p pgps;
-
-	transport_buf_p trans;
-
-	time_t epoch;
-
-	char strTime[50];
-
-	unsigned char chkSum=0;
-
-
-    if (frame_test_transport(ogps,sizeof(ogps))) {
-
-    	struct tm *ptime;
-
-    	trans = (transport_buf_p) ogps;
-    	frm_cmd_gps_old_p opgps = (frm_cmd_gps_old_p) trans->data;
-
-    	epoch= time(NULL);
-    	ptime = gmtime(&epoch);
-
-    	printf("Old Gps size = " ,sizeof(frm_cmd_gps_old_t));
-
-    	opgps->data.asWord = ntohs(opgps->data.asWord);
-
-    	printf("Datos trama Gps:\n"
-    			    "\tCMD: 0x%02x\n"
-    				"\tLEN: %d\n"
-    			    "\tSEQ_L: 0x%04X\n"
-    			    "\tSEQ_S: 0x%04X\n"
-    				"\tLAT: %.4f\n"
-    				"\tLON: %.4f\n"
-    				"\tBEAR: %d\n"
-    				"\tFIX: %d\n"
-    				"\tHDOP: %d\n"
-    				"\tKNOTS: %d\n"
-    				"\tSPEED: %.3f kmph\n"
-    				"\tExten. %d \n"
-    				"\tSize: %d \n"
-    			 	"\tIgnition: %d\n"
-    			    "\tTurnon: %d\n"
-    				"\tTIME: %04d-%02d-%02d %02d:%02d:%02d UTC\n"
-    			    "\n"
-    				,opgps->cmd
-    				,opgps->len
-    				,ntohs(opgps->seq_l)
-    				,ntohs(opgps->seq_s)
-    				,GPS_DECODE_LOC(opgps->lat_sign,opgps->lat_deg,ntohs(opgps->lat_min))
-    				,GPS_DECODE_LOC(opgps->data.parts.lon_sign,opgps->lon_deg,ntohs(opgps->lon_min))
-    				,GPS_DECODE_OLD_BEARING(opgps->data.parts.bear2,opgps->bear1,opgps->bear0)
-    				,opgps->data.parts.fix
-    				,opgps->hdop
-    				,opgps->knots
-    				,GPS_DECODE_SPEED(opgps->knots)
-    				,opgps->ext
-    				,opgps->size
-    				,opgps->data.parts.ign
-    				,opgps->turnon
-    				,((ptime->tm_year+1900) & ~0x3) | opgps->year
-    				,opgps->month
-    				,opgps->day
-    				,opgps->hour
-    				,opgps->data.parts.mins
-    				,opgps->data.parts.secs
-    				);
-
-    }
-
-
-
-
-
-
-
-	trans = (transport_buf_p) buf;
-
-	printf("Buff size = " ,sizeof(buf));
-
-	printf("Transport Size 0x%08X 0x%08X %d\n",trans->header.length,ntohs(trans->header.length),ntohs(trans->header.length));
-
-
-
-	int dataLen = ntohs(trans->header.length);
-
-	/*
-		for (int i=0; i< dataLen-1 ;i++) {
-		   chkSum ^= buf[TRANS_HEADER_SIZE+i];
-		}
-    */
-
-	DB_T *db = db_create("localhost","Yii","user","entrar");
-	if (!db_connect(db)) {
-		die("Error connecting database");
-	}
-
-	if ( frame_test_transport(buf,sizeof(buf)) ) {
-
-		printf("Transport check ok\n");
-		mydb_insert_transport_frame(db,0,0,0,buf,sizeof(buf));
-
+		unsigned char ogps[]= {0x00,0x00,0x1A,0x01,0x02,0x03,0x04,0x13,0x11,0x00,0x01,0x00,0x00,0xAA,0x86,0xEF,0x72,0x01,0xA8,0x58,0x9A,0x8B,0x29,0x05,0x4A,0x8D,0x27,0x3E,0xA4};
+		// 09/08/2013 12:33:46	41,48642	-5,718267	11	1	1	48	1	0	1	1	7	Zamora	CL-605	ZAMORA	1	0	1	3	39 = 0x27	1
 
 		frm_cmd_gps_t gps;
-		size_t gpsLen = sizeof(gps);
+		frm_cmd_gps_p pgps;
 
-		if (frame_decode_gps(buf+TRANS_DATA_OFFSET,dataLen-TRANS_HEADER_SERIAL_SIZE,&gps,&gpsLen)) {
+		transport_buf_p trans;
 
-			mydb_insert_gps_subframe(db,1,1,&gps,gpsLen);
+		time_t epoch;
+
+		char strTime[50];
+
+		unsigned char chkSum=0;
+
+
+	    if (frame_test_transport(ogps,sizeof(ogps))) {
+
+	    	struct tm *ptime;
+
+	    	trans = (transport_buf_p) ogps;
+	    	frm_cmd_gps_old_p opgps = (frm_cmd_gps_old_p) trans->data;
+
+	    	epoch= time(NULL);
+	    	ptime = gmtime(&epoch);
+
+	    	printf("Old Gps size = " ,sizeof(frm_cmd_gps_old_t));
+
+	    	opgps->info.data.asWord = ntohs(opgps->info.data.asWord);
+
+	    	printf("Datos trama Gps:\n"
+	    			    "\tCMD: 0x%02x\n"
+	    				"\tLEN: %d\n"
+	    			    "\tSEQ_L: 0x%04X\n"
+	    			    "\tSEQ_S: 0x%04X\n"
+	    				"\tLAT: %.4f\n"
+	    				"\tLON: %.4f\n"
+	    				"\tBEAR: %d\n"
+	    				"\tFIX: %d\n"
+	    				"\tHDOP: %d\n"
+	    				"\tKNOTS: %d\n"
+	    				"\tSPEED: %.3f kmph\n"
+	    				"\tExten. %d \n"
+	    				"\tSize: %d \n"
+	    			 	"\tIgnition: %d\n"
+	    			    "\tTurnon: %d\n"
+	    				"\tTIME: %04d-%02d-%02d %02d:%02d:%02d UTC\n"
+	    			    "\n"
+	    				,opgps->cmd
+	    				,opgps->len
+	    				,ntohs(opgps->seq_l)
+	    				,ntohs(opgps->seq_s)
+	    				,GPS_DECODE_LOC(opgps->info.lat_sign,opgps->info.lat_deg,ntohs(opgps->info.lat_min))
+	    				,GPS_DECODE_LOC(opgps->info.data.parts.lon_sign,opgps->info.lon_deg,ntohs(opgps->info.lon_min))
+	    				,GPS_DECODE_OLD_BEARING(opgps->info.data.parts.bear2,opgps->info.bear1,opgps->info.bear0)
+	    				,opgps->info.data.parts.fix
+	    				,opgps->info.hdop
+	    				,opgps->info.knots
+	    				,GPS_DECODE_SPEED(opgps->info.knots)
+	    				,opgps->info.ext
+	    				,opgps->info.size
+	    				,opgps->info.data.parts.ign
+	    				,opgps->info.turnon
+	    				,((ptime->tm_year+1900) & ~0x3) | opgps->info.year
+	    				,opgps->info.month
+	    				,opgps->info.day
+	    				,opgps->info.hour
+	    				,opgps->info.data.parts.mins
+	    				,opgps->info.data.parts.secs
+	    				);
+
+	    }
+
+
+
+		trans = (transport_buf_p) buf;
+
+		printf("Buff size = " ,sizeof(buf));
+
+		printf("Transport Size 0x%08X 0x%08X %d\n",trans->header.length,ntohs(trans->header.length),ntohs(trans->header.length));
+
+
+
+		int dataLen = ntohs(trans->header.length);
+
+		/*
+			for (int i=0; i< dataLen-1 ;i++) {
+			   chkSum ^= buf[TRANS_HEADER_SIZE+i];
+			}
+	    */
+
+		DB_T *db = db_create("localhost","Yii","user","entrar");
+		if (!db_connect(db)) {
+			die("Error connecting database");
+		}
+
+		if ( frame_test_transport(buf,sizeof(buf)) ) {
+
+			printf("Transport check ok\n");
+			mydb_insert_transport_frame(db,0,0,0,buf,sizeof(buf));
+
+
+			frm_cmd_gps_t gps;
+			size_t gpsLen = sizeof(gps);
+
+			if (frame_decode_gps(buf+TRANS_DATA_OFFSET,dataLen-TRANS_HEADER_SERIAL_SIZE,&gps,&gpsLen)) {
+
+				mydb_insert_gps_subframe(db,1,1,&gps,gpsLen);
+
+			}
+
+		}
+
+		//db_disconnect(db);
+		db_destroy(db);
+
+		printf("Datos transporte:\n"
+				"\tStart\n"
+				"\t\tLit. Endian: %d\n"
+				"\t\tCRC : %d\n"
+				"\t\tVersion: %d\n"
+				"\t\tSerial: 0x%08X\n"
+				"\t\tLength: %d\n"
+				"\t\tChkSum:  0x%02X\n"
+				"\t\tChkSum2: 0x%02X\n"
+				"\t\tVerSum:  0x%02X\n"
+				, trans->header.start.lendian
+				, trans->header.start.crc
+				, trans->header.start.version
+				, ntohl(trans->header.sn)
+				, ntohs(trans->header.length)
+				, trans->data[ntohs(trans->header.length)-TRANS_HEADER_SERIAL_SIZE-1]
+				, buf[TRANS_HEADER_SIZE+dataLen-1]
+				, chkSum
+				);
+
+
+		printf("\nData: ");
+		for (int i=0; i< dataLen; i++) {
+
+			printf(" %02X",trans->data[i]);
+		}
+	    printf("\n");
+
+
+		printf("Transport SN 0x%08X 0x%08X \n",trans->header.sn,ntohl(trans->header.sn));
+
+	    printf("Sizeof gps Struct = %u\n",sizeof(gps));
+
+		pgps = (frm_cmd_gps_p) trans->data;
+
+		epoch = ntohl(pgps->time.epoch);
+
+		strftime(strTime,sizeof(strTime),"%F %T",gmtime(&epoch));
+
+		printf("Datos trama Gps:\n"
+			    "\tCMD: 0x%02x\n"
+			    "\tSEQ: 0x%08X\n"
+				"\tLAT: %.4f\n"
+				"\tLON: %.4f\n"
+				"\tBEAR: %d\n"
+				"\tFIX: %d\n"
+				"\tHDOP: %d\n"
+				"\tKNOTS: %d\n"
+				"\tSPEED: %.3f kmph\n"
+				"\tTIME: %d %s\n"
+			    "\n"
+				,pgps->cmd
+				,ntohs(pgps->seq_l)
+				,GPS_DECODE_LOC(pgps->lat_sign,pgps->lat_deg,ntohs(pgps->lat_min))
+				,GPS_DECODE_LOC(pgps->lon_sign,pgps->lon_deg,ntohs(pgps->lon_min))
+				,GPS_DECODE_BEARING(pgps->bearing)
+				,pgps->fix
+				,pgps->hdop
+				,pgps->knots
+				,GPS_DECODE_SPEED(pgps->knots)
+				,ntohl(pgps->time.epoch)
+				,strTime
+				);
+
+		die("End of test");
+}
+
+
+void doFrame015Test() {
+
+	unsigned char buff[] = {0x15,0x01,0x83,0x17,0x15,0x00,0x00,0x2A,0x14,0x79,0x22,0x72,0xC1,0x16,0x80,0xC2,0x2A,0x08,0x72,0xA0,0x0A,0x14,0x89,0x22,0x72,0xC1,0x16,0x80,0xC2,0x0A,0x14,0x99,0x22,0x72,0xC1,0x16,0x00,0x2E,0x0A,0x14,0xA9,0x22,0x71,0xC1,0x16,0x00,0x60,0x0A,0x14,0xB9,0x22,0x71,0xC1,0x16,0x00,0x37,0x0A,0x14,0xC9,0x22,0x71,0xC1,0x16,0x00,0x05,0x0A,0x14,0xD9,0x22,0x70,0xC1,0x16,0x00,0x43,0x0A,0x14,0xE9,0x22,0x70,0xC1,0x16,0x00,0x39,0x0A,0x14,0xF9,0x22,0x70,0xC1,0x16,0x00,0x26,0x0A,0x15,0x09,0x22,0x70,0xC1,0x16,0x00,0x9D,0x0A,0x15,0x19,0x22,0x6F,0xC1,0x17,0x01,0xBE,0x0A,0x15,0x29,0x22,0x6F,0xC1,0x17,0x00,0x8F,0x0A,0x15,0x39,0x22,0x6E,0xC1,0x17,0x00,0xBA,0x0A,0x15,0x49,0x22,0x6E,0xC1,0x17,0x00,0x93,0x0A,0x15,0x59,0x22,0x6D,0xC1,0x17,0x00,0xBB,0x0A,0x15,0x69,0x22,0x6D,0xC1,0x17,0x00,0x93,0x0A,0x15,0x79,0x22,0x6C,0xC1,0x17,0x00,0xD8,0x0A,0x15,0x89,0x22,0x6C,0xC1,0x17,0x00,0xD6,0x0A,0x15,0x99,0x22,0x6C,0xC1,0x17,0x00,0xCD,0x0A,0x15,0xA9,0x22,0x6C,0xC1,0x17,0x80,0x4D,0x0A,0x15,0xB9,0x22,0x6C,0xC1,0x18,0x00,0x80,0x0A,0x15,0xC9,0x22,0x6B,0xC1,0x18,0x00,0xD1,0x0A,0x15,0xD9,0x22,0x6B,0xC1,0x18,0x00,0xBD,0x0A,0x15,0xE9,0x22,0x6B,0xC1,0x18,0x00,0x9F,0x0A,0x15,0xF9,0x22,0x6B,0xC1,0x18,0x00,0x8B,0x0A,0x16,0x09,0x22,0x6B,0xC1,0x18,0x00,0x8B,0x0A,0x16,0x19,0x22,0x6B,0xC1,0x17,0x00,0x93,0x0A,0x16,0x29,0x22,0x6B,0xC1,0x18,0x00,0x8A,0x0A,0x16,0x39,0x22,0x6B,0xC1,0x18,0x00,0x8A,0x0A,0x16,0x49,0x22,0x6B,0xC1,0x18,0x00,0x80,0x0A,0x16,0x59,0x22,0x6B,0xC1,0x17,0x00,0x89,0x0A,0x16,0x69,0x22,0x6B,0xC1,0x17,0x00,0x88,0x0A,0x16,0x79,0x22,0x6B,0xC1,0x17,0x00,0x93,0x0A,0x16,0x89,0x22,0x6B,0xC1,0x17,0x00,0x9D,0x0A,0x16,0x99,0x22,0x6B,0xC1,0x17,0x00,0x9C,0x0A,0x16,0xA9,0x22,0x6B,0xC1,0x17,0x00,0xA5,0x0A,0x16,0xB1,0x22,0x6B,0xC1,0x17,0x00,0xA4,0x0A,0x16,0xC1,0x22,0x6B,0xC1,0x17,0x00,0x91,0x0A,0x16,0xD1,0x22,0x6A,0xC1,0x17,0x00,0xD9,0x0A,0x16,0xE9,0x22,0x6A,0xC1,0x18,0x80,0xD3,0x0A,0x16,0xF9,0x22,0x6A,0xC1,0x18,0x80,0xD6,0x0A,0x17,0x09,0x22,0x6A,0xC1,0x18,0x80,0xC4,0xFF};
+
+	if (sizeof(buff) > sizeof(frm_cmd_gps_old_t) ) {   //TODO Verificar los tamaños
+
+		frm_cmd_gps_old_p pCmd = (frm_cmd_gps_old_p) buff;
+
+		if( (pCmd->cmd == 0x15) && (pCmd->len>250)) {
+
+			frm_gps_old_t cache;
+			frm_gps_old_p pGps = &pCmd->info;
+			bool init = false;
+			bool extended = false;
+
+			while (pGps->hour<23) {
+
+				extended = pGps -> ext;
+
+				    /* "00" => 9 bytes
+				       "01" => 13 bytes
+				        "10" => 2 bytes y contacto=0
+				        "11" => 2 bytes y contacto=1 y fix=0
+				     */
+
+				switch (pGps->size) {
+
+				case 0: // 00
+
+					memcpy(&cache,pGps,sizeof(cache)-4); // Todos los campos menos los
+
+					break;
+
+				case 1:  // 11
+					init = true;
+
+					cache = *pGps; // Copiamos todos los datos
+
+					break;
+
+				case 2:
+
+					cache.hour = pGps->hour;
+					cache.data.parts.mins = pGps->data.parts.mins;
+					cache.data.parts.ign = 0;
+
+					break;
+
+				case 3:
+					cache.hour = pGps->hour;
+					cache.data.parts.mins = pGps->data.parts.mins;
+					cache.data.parts.ign = 1;
+					cache.data.parts.fix = 0;
+
+					break;
+
+				}
+
+				// Hacer algo con datos Gps
+
+
+
+				if (extended) {
+					// Hacer cositas con los datos extendidos
+
+					//
+
+				}
+
+
+				// Se continua...
+
+			}
+
 
 		}
 
 	}
 
-	//db_disconnect(db);
-	db_destroy(db);
 
-	printf("Datos transporte:\n"
-			"\tStart\n"
-			"\t\tLit. Endian: %d\n"
-			"\t\tCRC : %d\n"
-			"\t\tVersion: %d\n"
-			"\t\tSerial: 0x%08X\n"
-			"\t\tLength: %d\n"
-			"\t\tChkSum:  0x%02X\n"
-			"\t\tChkSum2: 0x%02X\n"
-			"\t\tVerSum:  0x%02X\n"
-			, trans->header.start.lendian
-			, trans->header.start.crc
-			, trans->header.start.version
-			, ntohl(trans->header.sn)
-			, ntohs(trans->header.length)
-			, trans->data[ntohs(trans->header.length)-TRANS_HEADER_SERIAL_SIZE-1]
-			, buf[TRANS_HEADER_SIZE+dataLen-1]
-			, chkSum
-			);
+}
 
+void doTestAndDie() {
 
-	printf("\nData: ");
-	for (int i=0; i< dataLen; i++) {
-
-		printf(" %02X",trans->data[i]);
-	}
-    printf("\n");
-
-
-	printf("Transport SN 0x%08X 0x%08X \n",trans->header.sn,ntohl(trans->header.sn));
-
-    printf("Sizeof gps Struct = %u\n",sizeof(gps));
-
-	pgps = (frm_cmd_gps_p) trans->data;
-
-	epoch = ntohl(pgps->time.epoch);
-
-	strftime(strTime,sizeof(strTime),"%F %T",gmtime(&epoch));
-
-	printf("Datos trama Gps:\n"
-		    "\tCMD: 0x%02x\n"
-		    "\tSEQ: 0x%08X\n"
-			"\tLAT: %.4f\n"
-			"\tLON: %.4f\n"
-			"\tBEAR: %d\n"
-			"\tFIX: %d\n"
-			"\tHDOP: %d\n"
-			"\tKNOTS: %d\n"
-			"\tSPEED: %.3f kmph\n"
-			"\tTIME: %d %s\n"
-		    "\n"
-			,pgps->cmd
-			,ntohs(pgps->seq_l)
-			,GPS_DECODE_LOC(pgps->lat_sign,pgps->lat_deg,ntohs(pgps->lat_min))
-			,GPS_DECODE_LOC(pgps->lon_sign,pgps->lon_deg,ntohs(pgps->lon_min))
-			,GPS_DECODE_BEARING(pgps->bearing)
-			,pgps->fix
-			,pgps->hdop
-			,pgps->knots
-			,GPS_DECODE_SPEED(pgps->knots)
-			,ntohl(pgps->time.epoch)
-			,strTime
-			);
-
-	die("End of test");
+	//doOldGpsFrameTest();
 }
 
 int main(int argc, char **argv) {

@@ -197,14 +197,8 @@ typedef frm_cmd_gps_t *frm_cmd_gps_p;
 //bloque_fin    : 8 bits    (solo aplicable en la trama de monitor)
 //-
 
+
 typedef struct {
-
-	u_int8_t   cmd;
-	u_int8_t   len;
-
-	u_int16_t  seq_l;
-	u_int16_t  seq_s;
-
 	u_int8_t   hour:5;
 	u_int8_t   size :2;
 	u_int8_t   ext :1;
@@ -221,6 +215,8 @@ typedef struct {
 			u_int16_t  mins :6;
 		} parts;
 
+		// Trama 2  (size: 1x)
+
 		struct {
 			u_int8_t byte0;
 			u_int8_t byte1;
@@ -228,6 +224,7 @@ typedef struct {
 		} asBytes;
 
 		u_int16_t  asWord;
+
 	} data;
 
 	u_int16_t  lat_min;
@@ -239,6 +236,7 @@ typedef struct {
 	u_int8_t   hdop  :7;
 	u_int8_t   bear0 :1;
 
+	// Trama 9  (sizeo: 00 )
 	u_int8_t   lat_deg:7;
 	u_int8_t   lat_sign:1;   // N/S
 
@@ -255,10 +253,28 @@ typedef struct {
 	u_int8_t   mov_sen: 1;
 	u_int8_t   month:4;
 
-	u_int8_t   blk_end;
+//	u_int8_t   blk_end;   Parece que nop
 
+	// Trama 13 (size: 01 )
+
+} PACKED frm_gps_old_t;
+
+typedef  frm_gps_old_t *frm_gps_old_p;
+
+
+typedef struct {
+
+	u_int8_t   cmd;
+	u_int8_t   len;
+
+	u_int16_t  seq_l;
+	u_int16_t  seq_s;
+
+	frm_gps_old_t info;
 
 } PACKED frm_cmd_gps_old_t;
+
+
 
 typedef frm_cmd_gps_old_t *frm_cmd_gps_old_p;
 
