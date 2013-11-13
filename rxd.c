@@ -515,6 +515,38 @@ void doOldGpsFrameTest() {
 		die("End of test");
 }
 
+void testPrintOldGpsInfo(frm_gps_old_p pgps) {
+
+
+	struct tm *ptime;
+
+	time_t epoch = time(NULL);
+
+   	ptime = gmtime(&epoch);
+
+	printf("Datos trama Old Gps:\n"
+			"\tDATE: %04d-%02d-%02d\n"
+			"\tTIME: %02d:%02d-%02d\n"
+			"\tLAT: %.4f\n"
+			"\tLON: %.4f\n"
+			"\tBEAR: %d\n"
+			"\tFIX: %d\n"
+			"\tHDOP: %d\n"
+			"\tKNOTS: %d\n"
+			"\tSPEED: %.3f kmph\n"
+		    "\n"
+			,1900+ptime->tm_year | pgps->year, pgps->month,pgps->day
+			,pgps->hour,pgps->data.parts.mins,pgps->data.parts.secs
+			,GPS_DECODE_LOC(pgps->lat_sign,pgps->lat_deg,ntohs(pgps->lat_min))
+			,GPS_DECODE_LOC(pgps->data.parts.lon_sign ,pgps->lon_deg,ntohs(pgps->lon_min))
+			,GPS_DECODE_OLD_BEARING(pgps->data.parts.bear2,pgps->bear1,pgps->bear0)
+			,pgps->data.parts.fix
+			,pgps->hdop
+			,pgps->knots
+			,GPS_DECODE_SPEED(pgps->knots)
+		);
+
+}
 
 void doFrame015Test() {
 
@@ -522,14 +554,15 @@ void doFrame015Test() {
 
 	if (sizeof(buff) > sizeof(frm_cmd_gps_old_t) ) {   //TODO Verificar los tamaños
 
-		frm_cmd_gps_old_p pCmd = (frm_cmd_gps_old_p) buff;
+		frm_cmd_rally_gps_old_p pCmd = (frm_cmd_rally_gps_old_p) buff;
 
-		if( (pCmd->cmd == 0x15) && (pCmd->len>250)) {
+		if( (pCmd->cmd == 0x15) && (ntohs(pCmd->len)>250)) {
 
 			frm_gps_old_t cache;
 			frm_gps_old_p pGps = &pCmd->info;
 			bool init = false;
 			bool extended = false;
+			int offset = 0;
 
 			while (pGps->hour<23) {
 
@@ -545,7 +578,9 @@ void doFrame015Test() {
 
 				case 0: // 00
 
-					memcpy(&cache,pGps,sizeof(cache)-4); // Todos los campos menos los
+					memcpy(&cache,pGps,sizeof(cache)-4); // Todos los campos menos los 4 ultimos
+
+					offset = sizeof(cache)-4;  // En teoria 9;
 
 					break;
 
@@ -553,6 +588,8 @@ void doFrame015Test() {
 					init = true;
 
 					cache = *pGps; // Copiamos todos los datos
+
+					offset = sizeof(cache); // En teoria 13;
 
 					break;
 
@@ -562,6 +599,7 @@ void doFrame015Test() {
 					cache.data.parts.mins = pGps->data.parts.mins;
 					cache.data.parts.ign = 0;
 
+					offset = 2;
 					break;
 
 				case 3:
@@ -570,23 +608,39 @@ void doFrame015Test() {
 					cache.data.parts.ign = 1;
 					cache.data.parts.fix = 0;
 
-					break;
+					offset = 2;
 
+						break;
+
+					}
+
+					// Hacer algo con datos Gps
+
+				if (!init) {
+					//Sale en caso de que no haya venido una trama de 13 bytes primero
+					printf("Error: Formato de trama incorrecto\n");
+					break;
 				}
 
-				// Hacer algo con datos Gps
-
+				testPrintOldGpsInfo(&cache);
 
 
 				if (extended) {
 					// Hacer cositas con los datos extendidos
 
+					// FIXME De momento no soportamos tramas extendidas.
+
+					printf("Error: Trama extendida no soportado\n");
+					break; //While
 					//
 
 				}
 
 
 				// Se continua...
+			   pGps =  ((char *) pGps) + offset;
+				//((char *)pGps)+=offset;
+
 
 			}
 
@@ -601,6 +655,10 @@ void doFrame015Test() {
 void doTestAndDie() {
 
 	//doOldGpsFrameTest();
+
+	doFrame015Test();
+
+	die("End Tests");
 }
 
 int main(int argc, char **argv) {
@@ -609,7 +667,7 @@ int main(int argc, char **argv) {
 
 	int exitCode;
 
-	//doTestAndDie();
+	doTestAndDie();
 
 	parseArgs(argc,argv);
 	initLogs();

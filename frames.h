@@ -275,8 +275,21 @@ typedef struct {
 } PACKED frm_cmd_gps_old_t;
 
 
+typedef struct {
+
+	u_int8_t   cmd;
+	u_int16_t   len;
+
+	u_int16_t  seq_l;
+	u_int16_t  seq_s;
+
+	frm_gps_old_t info;
+
+} PACKED frm_cmd_rally_gps_old_t;
+
 
 typedef frm_cmd_gps_old_t *frm_cmd_gps_old_p;
+typedef frm_cmd_rally_gps_old_t *frm_cmd_rally_gps_old_p;
 
 typedef union {
 
