@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <time.h>
 
+#include "lib/log.h"
 #include "mydb.h"
 #include "frames.h"
 
@@ -86,6 +87,183 @@ int mydb_update_transport_frame_status(DB_T *db, int rx_id, int status) {
 
 	return 0;
 }
+
+
+/*
+ * Inserta subframes Old Gps de 13 bytes
+ */
+
+int mydb_insert_old_gps_subframe(DB_T *db, int rx_id, int loc_id, int cmd, int len, int seq_l, int seq_s, void *buf, size_t bufLen) {
+
+	char *tpl = " INSERT INTO gps_tbl ( rx_id, localizable_id, cmd, len, seq_l, seq_s, lat, lon, bearing, speed, knots, fix, hdop,time) "
+				          " VALUES (%d, %d, %d,%d,%d, %d, %f, %f, %d, %f, %d, %d, %d , %d)";
+
+	struct tm tp;
+	struct tm *currTime;
+	time_t epoch = time(NULL);
+	currTime = gmtime(&epoch);
+
+
+	if (db_isConnected(db)) {
+
+		frm_gps_old_p gps = (frm_cmd_gps_old_p) buf;
+
+		char sql[1500];
+
+		time_t time;
+
+		memset(&tp,0,sizeof(tp));
+
+		tp.tm_year = (currTime->tm_year & ~0x03) | gps->year;
+		tp.tm_mon  = gps->month;
+		tp.tm_mday = gps->day;
+		tp.tm_hour = gps->hour;
+		tp.tm_min  = gps->data.parts.mins;
+		tp.tm_sec  = gps->data.parts.secs;
+		time = timegm(&tp);
+
+		// Debido a como esta codificado esto hay que darlo la vuelta antes de poder usarlo
+	   	gps->data.asWord = ntohs(gps->data.asWord);
+
+		sprintf(sql,tpl,
+				rx_id,
+				loc_id,
+				cmd,
+				len,
+				seq_l,
+				seq_s,
+				GPS_DECODE_LOC_1M(gps->lat_sign,gps->lat_deg,ntohs(gps->lat_min)),
+				GPS_DECODE_LOC_1M(gps->data.parts.lon_sign ,gps->lon_deg,ntohs(gps->lon_min)),
+				GPS_DECODE_OLD_BEARING(gps->data.parts.bear2,gps->bear1,gps->bear0),
+				GPS_DECODE_SPEED(gps->knots),
+				gps->knots,
+				gps->data.parts.fix,
+				gps->hdop,
+				time
+			);
+
+		RES_T *res=db_query(db,sql);
+
+		res_destroy(res);
+
+		return db_getAffectedRows(db);
+
+
+	}
+
+	return 0;
+}
+
+
+int mydb_insert_rally_old_gps_frame(DB_T *db, int rx_id, int loc_id,  void *buf, size_t bufLen) {
+	int recCount = 0;
+
+
+	if (bufLen > sizeof(frm_cmd_gps_old_t) ) {   //TODO Verificar los tamaños
+
+			frm_cmd_rally_gps_old_p pCmd = (frm_cmd_rally_gps_old_p) buf;
+
+			if( (pCmd->cmd == 0x15) && (ntohs(pCmd->len)>250)) {
+
+				frm_gps_old_t cache;
+				frm_gps_old_p pGps = &pCmd->info;
+				bool init = false;
+				bool extended = false;
+				int offset = 0;
+
+				while (pGps->hour<23) {
+
+					extended = pGps -> ext;
+
+					    /* "00" => 9 bytes
+					       "01" => 13 bytes
+					        "10" => 2 bytes y contacto=0
+					        "11" => 2 bytes y contacto=1 y fix=0
+					     */
+
+					switch (pGps->size) {
+
+					case 0: // 00
+
+						memcpy(&cache,pGps,sizeof(cache)-4); // Todos los campos menos los 4 ultimos
+
+						offset = sizeof(cache)-4;  // En teoria 9;
+
+						break;
+
+					case 1:  // 11
+						init = true;
+
+						cache = *pGps; // Copiamos todos los datos
+
+						offset = sizeof(cache); // En teoria 13;
+
+						break;
+
+					case 2:
+
+						cache.hour = pGps->hour;
+						cache.data.parts.mins = pGps->data.parts.mins;
+						cache.data.parts.ign = 0;
+
+						offset = 2;
+						break;
+
+					case 3:
+						cache.hour = pGps->hour;
+						cache.data.parts.mins = pGps->data.parts.mins;
+						cache.data.parts.ign = 1;
+						cache.data.parts.fix = 0;
+
+						offset = 2;
+
+							break;
+
+						}
+
+						// Hacer algo con datos Gps
+
+					if (!init) {
+						//Sale en caso de que no haya venido una trama de 13 bytes primero
+						LOG_F_E("Error (loc_id=%d,rx_id=%d): Formato de trama incorrecto",loc_id,rx_id);
+						break;
+					}
+
+					//testPrintOldGpsInfo(&cache);
+
+					if ( mydb_insert_old_gps_subframe(db, rx_id, loc_id,
+							pCmd->cmd,  ntohs(pCmd->len), ntohs(pCmd->seq_l), ntohs(pCmd->seq_s),
+							&cache, sizeof(cache))
+							)
+					  recCount++;
+
+
+					if (extended) {
+						// Hacer cositas con los datos extendidos
+
+						// FIXME De momento no soportamos tramas extendidas.
+
+						LOG_F_E("Error (loc_id=%d,rx_id=%d): Formato con trama extendida no soportado",loc_id,rx_id);
+						break; //While
+						//
+
+					}
+
+					// Se continua...
+				   pGps =  ((char *) pGps) + offset;
+					//((char *)pGps)+=offset;
+
+				}
+
+
+			}
+
+		}
+
+	return recCount;
+}
+
+
 
 int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t len) {
 

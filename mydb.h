@@ -38,6 +38,7 @@ int mydb_insert_trashed_transport_frame(DB_T *db, long ip, int port,long sn, voi
 int mydb_insert_gps_subframe(DB_T *db, int rx_id, int loc_id,  void *buf, size_t len);
 RES_T * mydb_select_undecoded_transport_frames(DB_T *db);
 int mydb_update_transport_frame_status(DB_T *db, int rx_id, int status);
-
+int mydb_insert_old_gps_subframe(DB_T *db, int rx_id, int loc_id, int cmd, int len, int seq_l, int seq_s, void *buf, size_t bufLen);
+int mydb_insert_rally_old_gps_frame(DB_T *db, int rx_id, int loc_id,  void *buf, size_t bufLen);
 
 #endif /* MYDB_H_ */

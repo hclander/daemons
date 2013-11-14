@@ -73,7 +73,8 @@ typedef transport_buf_t *transport_buf_p;
 #define FRAME_CMD_GPS_HUMAN 0x10
 #define FRAME_CMD_GPS_EPOCH 0x11
 #define FRAME_CMD_GPS_OLD   0x13
-#define FRAME_CMD_RTC_TIME  0x15
+#define FRAME_CMD_GPS_RALLY_OLD 0x15
+#define FRAME_CMD_RTC_TIME  0x20
 #define FRAME_CMD_PROBE		0xA0
 #define FRAME_CMD_SENSOR0	0xD0
 #define FRAME_CMD_SENSOR1   0xE0
@@ -287,6 +288,10 @@ typedef struct {
 
 } PACKED frm_cmd_rally_gps_old_t;
 
+#define GPS_RALLY_FRAME_PREAMBLE  (sizeof(frm_cmd_rally_gps_old_t) - sizeof(frm_gps_old_t))
+#define GPS_RALLY_MIN_BLOCK_SIZE 250
+#define GPS_RALLY_FRAME_MIN_SIZE (GPS_RALLY_FRAME_PREAMBLE + GPS_RALLY_MIN_BLOCK_SIZE)
+#define GPS_RALLY_DATA_MIN_SIZE (sizeof(frm_cmd_rally_gps_old_t.seq_l) + sizeof(frm_cmd_rally_gps_old_t.seq_s) + GPS_RALLY_MIN_BLOCK_SIZE)
 
 typedef frm_cmd_gps_old_t *frm_cmd_gps_old_p;
 typedef frm_cmd_rally_gps_old_t *frm_cmd_rally_gps_old_p;
@@ -394,6 +399,7 @@ int frame_test_gps(unsigned char *buffer, size_t *len);
 int frame_test_gps_old(unsigned char *buffer, size_t *len);
 int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
 int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen);
+int frame_decode_rally_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *dstLen);
 int frame_decode_transport(unsigned char *buffer, size_t len);
 int frame_encode_transport(int ns, void *src, size_t srcLen, void *dst, size_t *dstLen );
 int frame_encode_ack(long serialNumber, int cmd, void *dst, size_t *len);

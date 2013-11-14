@@ -64,6 +64,7 @@ int frame_test_gps_old(unsigned char *buffer, size_t *len) {
 		}
 	}
 
+
 	*len = minLen;
 
 	return result;
@@ -100,18 +101,20 @@ int frame_test_gps(unsigned char *buffer, size_t *len) {
 
 }
 
+
+
 int frame_test_gps_all(unsigned char *buffer, size_t *len) {
 
 	return frame_test_gps(buffer,len) || frame_test_gps_old(buffer,len);
 }
 
-int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen) {
+int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *dstLen) {
 	int result = false;
 
 	int minLen=sizeof(frm_cmd_gps_old_t);
 
 	if (len>=minLen) {
-		if (frame_test_gps_old(buffer,gpsLen)) {
+		if (frame_test_gps_old(buffer,dstLen)) {
 
 			memcpy(dst,buffer,minLen);
 
@@ -119,12 +122,30 @@ int frame_decode_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *g
 		}
 	}
 
-	*gpsLen = minLen;
+	*dstLen = minLen;
 	return result;
 }
 
 
-int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen){
+int frame_decode_rally_gps_old(unsigned char *buffer, size_t len, void *dst, size_t *dstLen) {
+	int result = false;
+	int minLen = GPS_RALLY_FRAME_MIN_SIZE;
+
+	if (len>=minLen) {
+
+		frm_cmd_rally_gps_old_p pCmd = (frm_cmd_rally_gps_old_p) buffer;
+
+		if( (pCmd->cmd == 0x15) && (ntohs(pCmd->len)>250)) {
+
+			result = true;
+		}
+
+	}
+
+	return result;
+}
+
+int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *dstLen){
 
 	int result = false;
 
@@ -133,9 +154,9 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 	int minLen=sizeof(frm_cmd_gps_t);
 
 	if (len>= minLen) {
-		if (frame_test_gps(buffer,gpsLen)) {
+		if (frame_test_gps(buffer,dstLen)) {
 
-			memcpy(dst,buffer,*gpsLen);
+			memcpy(dst,buffer,*dstLen);
 
 			result = true;
 			//FIXME Decode here fields here??
@@ -145,16 +166,16 @@ int frame_decode_gps(unsigned char *buffer, size_t len, void *dst, size_t *gpsLe
 		}
 	} else {
 
-		*gpsLen = minLen;
+		*dstLen = minLen;
 	}
 
 	return result;
 }
 
-int frame_decode_gps_all(unsigned char *buffer, size_t len, void *dst, size_t *gpsLen) {
+int frame_decode_gps_all(unsigned char *buffer, size_t len, void *dst, size_t *dstLen) {
 
-	return frame_decode_gps(buffer,len,dst,gpsLen)
-			|| frame_decode_gps_old(buffer,len,dst,gpsLen);
+	return frame_decode_gps(buffer,len,dst,dstLen)
+			|| frame_decode_gps_old(buffer,len,dst,dstLen);
 }
 
 
@@ -380,6 +401,7 @@ int frame_decodermanager_registerAll() {
 	fdl_register_func(decodersList,FRAME_CMD_GPS_HUMAN,frame_decode_gps);
 	fdl_register_func(decodersList,FRAME_CMD_GPS_OLD,frame_decode_gps_old);
 	fdl_register_func(decodersList,FRAME_CMD_CONECTION,frame_decode_cnx);
+	fdl_register_func(decodersList,FRAME_CMD_GPS_RALLY_OLD,frame_decode_rally_gps_old);
 
 	//TODO Simplificar el registro de comandos con valores en el propio comando
 
@@ -402,6 +424,9 @@ int frame_decodermanager_decode(void *buf, size_t size, int *count) {
 	size_t dstLen;
 	char dst[512];
 
+	//FIXME: Esto todavía no hace nada ... de hecho sólo mueve datos de un sitio a otro no graba a base de datos
+	//       hay que hacer varios cambios y crear la funcionalidad de gestor de decodificacion (decodemanager)
+
 	if (buf) {
 		src = buf;
 		*count=0;
@@ -419,7 +444,7 @@ int frame_decodermanager_decode(void *buf, size_t size, int *count) {
 
 			cmd = *src;
 
-			LOG_F_D("Found CMD: 0x%02Xd",cmd);
+			LOG_F_D("Found CMD: 0x%02X",cmd);
 
 			decode=fdl_get_func(decodersList,cmd);
 

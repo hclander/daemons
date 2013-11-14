@@ -135,6 +135,9 @@ int processData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 		buf = row_getFieldValue(row, row_getFieldIndex(row,"data"));
 
 
+		//FIXME La gestion de decodermanager no está funcionando...
+		// actualmenet solo sirve para contar cuantas posibles subtramas pudiera haber..
+		//
 		ok=frame_decodermanager_decode(buf,len,&count);
 
 		if (count>0) {
@@ -150,6 +153,22 @@ int processData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 					status = 3;
 				}
 			}
+
+			// FIXME Megachapuzada para grabar las tramas 0x15... Niños no hagais esto en casa. Va en contra de toda logíca y raciocinio...
+			// es mas ver esto puede producir trastornos cerebrales severos...
+			if ( frame_decode_rally_gps_old(buf,len,NULL,NULL)) {
+
+				int recCount;
+
+				recCount=mydb_insert_rally_old_gps_frame(dbw,rx_id,loc_id,buf,len);
+
+				LOG_F_D("Trama 0x15 (loc_id = %d, rx_id=%d) : Decodificados %d registros",loc_id,rx_id,recCount);
+
+				if (!recCount)
+					status = 3;
+
+			}
+
 
 
 		} else {
