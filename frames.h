@@ -381,6 +381,7 @@ typedef frm_cmd_ack_t *frm_cmd_ack_p;
 #define GPS_DECODE_SPEED(knots) (knots * KNOTS_TO_KMPH)
 #define GPS_DECODE_LOC(sign,deg,min) ( (deg+min/MIN_TO_DEC) * (1+sign*-2))
 #define GPS_DECODE_LOC_1M(sign,deg,min) ( (deg+min/MIN_TO_DEC) * (1+sign*-2) * 1000000)
+#define GPS_DECODE_RALLY_LOC_1M(sign,deg,min) ( (deg+min/(MIN_TO_DEC*10)) * (1+sign*-2) * 1000000)
 #define GPS_DECODE_BEARING(bearing) (bearing*4)
 #define GPS_DECODE_OLD_BEARING(br2,br1,br0)  ( ((br2<<2) | (br1<<1) | br0)*45 )
 

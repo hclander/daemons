@@ -117,7 +117,7 @@ int mydb_insert_old_gps_subframe(DB_T *db, int rx_id, int loc_id, int cmd, int l
 
 			char sql[1500];
 
-			time_t time;
+			time_t myTime;
 
 			int myLatMin,myLonMin;
 
@@ -127,25 +127,29 @@ int mydb_insert_old_gps_subframe(DB_T *db, int rx_id, int loc_id, int cmd, int l
 			gps->data.asWord = ntohs(gps->data.asWord); // Esto es por lo que trabajamos con una copia....
 
 
-			tp.tm_year = (currTime->tm_year & ~0x03) | gps->year;
-			tp.tm_mon  = gps->month;
+			tp.tm_year = (currTime->tm_year & ~0x03) | gps->year;   // El año desde 1900
+			tp.tm_mon  = gps->month -1 ;  // Aqui los meses empiezan en 0
 			tp.tm_mday = gps->day;
 			tp.tm_hour = gps->hour;
 			tp.tm_min  = gps->data.parts.mins;
 			tp.tm_sec  = gps->data.parts.secs;
-			time = timegm(&tp);
+			myTime = timegm(&tp);
 
-			myLatMin = ntohs(gps->lat_min);
-			myLonMin = ntohs(gps->lon_min);
+			myLatMin = ntohs(gps->lat_min) * 10;
+			myLonMin = ntohs(gps->lon_min) * 10;
 
-			if (gps->hdop<100) {
+			if(gps->data.parts.fix) {
 
-				myLatMin = myLatMin * 10 + gps->hdop / 10;  // / 10  -> Decenas
-				myLonMin = myLonMin * 10 + gps->hdop % 10;  // % 10  -> unidades
+				if (gps->hdop<100) {
 
-			} else {
+					myLatMin += gps->hdop / 10;  // / 10  -> Decenas
+					myLonMin += gps->hdop % 10;  // % 10  -> unidades
 
-				LOG_F_E("Error (loc_id=%d,rx_id=%d) : Hdop>100",loc_id,rx_id );
+				} else {
+
+					LOG_F_E("Error (loc_id=%d,rx_id=%d) : Hdop>100",loc_id,rx_id );
+				}
+
 			}
 
 			sprintf(sql,tpl,
@@ -155,14 +159,14 @@ int mydb_insert_old_gps_subframe(DB_T *db, int rx_id, int loc_id, int cmd, int l
 					len,
 					seq_l,
 					seq_s,
-					GPS_DECODE_LOC_1M(gps->lat_sign,gps->lat_deg,myLatMin),
-					GPS_DECODE_LOC_1M(gps->data.parts.lon_sign ,gps->lon_deg,myLonMin),
+					GPS_DECODE_RALLY_LOC_1M(gps->lat_sign,gps->lat_deg,myLatMin),
+					GPS_DECODE_RALLY_LOC_1M(gps->data.parts.lon_sign ,gps->lon_deg,myLonMin),
 					GPS_DECODE_OLD_BEARING(gps->data.parts.bear2,gps->bear1,gps->bear0),
 					GPS_DECODE_SPEED(gps->knots),
 					gps->knots,
 					gps->data.parts.fix,
-					gps->data.parts.fix ? gps->hdop : 255,
-					time
+					gps->data.parts.fix ? 0 : 255,
+					myTime
 				);
 
 			RES_T *res=db_query(db,sql);
