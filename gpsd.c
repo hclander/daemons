@@ -129,8 +129,9 @@ int processData(RES_T *res, DB_T *dbw,DB_T *dbr) {
 
 	while (!row_isClosed(row=res_next(res))  ) {
 
-		rx_id = atoi(row_getFieldValue(row, row_getFieldIndex(row,"id")));
-		len   = atoi(row_getFieldValue(row, row_getFieldIndex(row,"len")));
+		rx_id  = atoi(row_getFieldValue(row, row_getFieldIndex(row,"id")));
+		len    = atoi(row_getFieldValue(row, row_getFieldIndex(row,"len")));
+		loc_id = atoi(row_getFieldValue(row, row_getFieldIndex(row,"ns")));
 
 		buf = row_getFieldValue(row, row_getFieldIndex(row,"data"));
 

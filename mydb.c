@@ -103,52 +103,76 @@ int mydb_insert_old_gps_subframe(DB_T *db, int rx_id, int loc_id, int cmd, int l
 	time_t epoch = time(NULL);
 	currTime = gmtime(&epoch);
 
+	frm_gps_old_t backup;
 
-	if (db_isConnected(db)) {
-
-		frm_gps_old_p gps = (frm_cmd_gps_old_p) buf;
-
-		char sql[1500];
-
-		time_t time;
-
-		memset(&tp,0,sizeof(tp));
-
-		tp.tm_year = (currTime->tm_year & ~0x03) | gps->year;
-		tp.tm_mon  = gps->month;
-		tp.tm_mday = gps->day;
-		tp.tm_hour = gps->hour;
-		tp.tm_min  = gps->data.parts.mins;
-		tp.tm_sec  = gps->data.parts.secs;
-		time = timegm(&tp);
-
-		// Debido a como esta codificado esto hay que darlo la vuelta antes de poder usarlo
-	   	gps->data.asWord = ntohs(gps->data.asWord);
-
-		sprintf(sql,tpl,
-				rx_id,
-				loc_id,
-				cmd,
-				len,
-				seq_l,
-				seq_s,
-				GPS_DECODE_LOC_1M(gps->lat_sign,gps->lat_deg,ntohs(gps->lat_min)),
-				GPS_DECODE_LOC_1M(gps->data.parts.lon_sign ,gps->lon_deg,ntohs(gps->lon_min)),
-				GPS_DECODE_OLD_BEARING(gps->data.parts.bear2,gps->bear1,gps->bear0),
-				GPS_DECODE_SPEED(gps->knots),
-				gps->knots,
-				gps->data.parts.fix,
-				gps->hdop,
-				time
-			);
-
-		RES_T *res=db_query(db,sql);
-
-		res_destroy(res);
-
-		return db_getAffectedRows(db);
+	if (bufLen == sizeof(backup)) {
 
 
+		if (db_isConnected(db)) {
+
+			backup = (*(frm_gps_old_p)buf);  // Copia de los datos
+
+			//frm_gps_old_p gps = (frm_gps_old_p) buf;
+			frm_gps_old_p gps = &backup;  // Trabajamos con la copia
+
+			char sql[1500];
+
+			time_t time;
+
+			int myLatMin,myLonMin;
+
+			memset(&tp,0,sizeof(tp));
+
+			// Debido a como esta codificado esto hay que darlo la vuelta antes de poder usarlo
+			gps->data.asWord = ntohs(gps->data.asWord); // Esto es por lo que trabajamos con una copia....
+
+
+			tp.tm_year = (currTime->tm_year & ~0x03) | gps->year;
+			tp.tm_mon  = gps->month;
+			tp.tm_mday = gps->day;
+			tp.tm_hour = gps->hour;
+			tp.tm_min  = gps->data.parts.mins;
+			tp.tm_sec  = gps->data.parts.secs;
+			time = timegm(&tp);
+
+			myLatMin = ntohs(gps->lat_min);
+			myLonMin = ntohs(gps->lon_min);
+
+			if (gps->hdop<100) {
+
+				myLatMin = myLatMin * 10 + gps->hdop / 10;  // / 10  -> Decenas
+				myLonMin = myLonMin * 10 + gps->hdop % 10;  // % 10  -> unidades
+
+			} else {
+
+				LOG_F_E("Error (loc_id=%d,rx_id=%d) : Hdop>100",loc_id,rx_id );
+			}
+
+			sprintf(sql,tpl,
+					rx_id,
+					loc_id,
+					cmd,
+					len,
+					seq_l,
+					seq_s,
+					GPS_DECODE_LOC_1M(gps->lat_sign,gps->lat_deg,myLatMin),
+					GPS_DECODE_LOC_1M(gps->data.parts.lon_sign ,gps->lon_deg,myLonMin),
+					GPS_DECODE_OLD_BEARING(gps->data.parts.bear2,gps->bear1,gps->bear0),
+					GPS_DECODE_SPEED(gps->knots),
+					gps->knots,
+					gps->data.parts.fix,
+					gps->data.parts.fix ? gps->hdop : 255,
+					time
+				);
+
+			RES_T *res=db_query(db,sql);
+
+			res_destroy(res);
+
+			return db_getAffectedRows(db);
+
+
+		}
 	}
 
 	return 0;
